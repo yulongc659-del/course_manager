@@ -17,15 +17,13 @@ jobs:
           channel: 'stable'
 
       - run: flutter pub get
-
       - run: flutter build ios --release --no-codesign
 
-      - name: Package as IPA
+      - name: Create IPA
         run: |
-          mkdir -p Payload
+          mkdir Payload
           cp -r build/ios/iphoneos/Runner.app Payload/
-          zip -r course_manager.ipa Payload/
-          rm -rf Payload
+          zip -r -y -q course_manager.ipa Payload/
 
       - uses: actions/upload-artifact@v4
         with:
