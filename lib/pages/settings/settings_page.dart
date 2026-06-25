@@ -83,10 +83,13 @@ class _SettingsPageState extends State<SettingsPage> {
                   onPressed: () {
                     showCupertinoDialog(
                       context: context,
-                      builder: (_) => const CupertinoAlertDialog(
+                      builder: (_) => CupertinoAlertDialog(
                         title: Text('已保存'),
                         content: Text('设置已自动保存'),
-                        actions: [CupertinoDialogAction(child: Text('好'))],
+                        actions: [CupertinoDialogAction(
+                          child: const Text('好'),
+                          onPressed: () => Navigator.pop(context),
+                        )],
                       ),
                     );
                   },

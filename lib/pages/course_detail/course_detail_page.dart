@@ -73,30 +73,20 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
     final color = courseColor(course.color);
 
     return CupertinoPageScaffold(
+      navigationBar: CupertinoNavigationBar(
+        middle: Text(course.name),
+        trailing: GestureDetector(
+          onTap: () async {
+            final r = await Navigator.pushNamed(context, '/course/edit', arguments: course);
+            if (r == true && mounted) Navigator.pop(context, true);
+          },
+          child: const Icon(CupertinoIcons.pencil, size: 20),
+        ),
+      ),
       child: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            // Header
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(course.name,
-                      style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700)),
-                ),
-                GestureDetector(
-                  onTap: () async {
-                    final r = await Navigator.pushNamed(context, '/course/edit', arguments: course);
-                    if (r == true && mounted) Navigator.pop(context, true);
-                  },
-                  child: const Padding(
-                    padding: EdgeInsets.all(6),
-                    child: Icon(CupertinoIcons.pencil, size: 20, color: CupertinoColors.systemBlue),
-                  ),
-                ),
-              ],
-            ),
 
             // Info
             GlassCard(

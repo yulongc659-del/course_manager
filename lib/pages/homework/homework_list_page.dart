@@ -46,10 +46,26 @@ class _HomeworkListPageState extends State<HomeworkListPage> {
     final map = <String, Course>{};
     for (final c in courses) map[c.id] = c;
     final hws = await _hwService.getAll();
-    if (mounted) setState(() { _courseMap = map; _homeworks = hws; });
+    if (mounted) setState(() { _courseMap = map; _homeworks = hws; _cachedFiltered = null; });
+  }
+
+  List<Homework>? _cachedFiltered;
+
+  Future<void> _toggleComplete(Homework hw) async {
+    await _hwService.toggleComplete(hw.id);
+    final idx = _homeworks.indexWhere((h) => h.id == hw.id);
+    if (idx < 0) return;
+    final updated = Homework(
+      id: hw.id, courseId: hw.courseId, title: hw.title,
+      dueDate: hw.dueDate, notes: hw.notes, isCompleted: !hw.isCompleted,
+    );
+    _homeworks[idx] = updated;
+    _cachedFiltered = null;
+    if (mounted) setState(() {});
   }
 
   List<Homework> get _filtered {
+    if (_cachedFiltered != null) return _cachedFiltered!;
     var list = _homeworks;
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
@@ -57,6 +73,7 @@ class _HomeworkListPageState extends State<HomeworkListPage> {
     }
     if (_filterIndex == 1) list = list.where((h) => !h.isCompleted).toList();
     else if (_filterIndex == 2) list = list.where((h) => h.isCompleted).toList();
+    _cachedFiltered = list;
     return list;
   }
 
@@ -92,7 +109,7 @@ class _HomeworkListPageState extends State<HomeworkListPage> {
                   1: Padding(padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6), child: Text('未完成')),
                   2: Padding(padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6), child: Text('已完成')),
                 },
-                onValueChanged: (v) => setState(() => _filterIndex = v),
+                onValueChanged: (v) => setState(() { _filterIndex = v; _cachedFiltered = null; }),
               ),
             ),
             const SizedBox(height: 12),
@@ -148,7 +165,12 @@ class _HomeworkListPageState extends State<HomeworkListPage> {
           final isExpired = hw.dueDate.compareTo(DateFormat('yyyy-MM-dd').format(DateTime.now())) < 0 && !hw.isCompleted;
           return CupertinoContextMenu(
             actions: [CupertinoContextMenuAction(isDestructiveAction: true, child: const Text('删除'),
-                onPressed: () async { await _hwService.delete(hw.id); await _loadData(); })],
+                onPressed: () async {
+                  await _hwService.delete(hw.id);
+                  _homeworks.removeWhere((h) => h.id == hw.id);
+                  _cachedFiltered = null;
+                  setState(() {});
+                })],
             child: GlassCard(
               margin: const EdgeInsets.only(bottom: 12),
               onTap: () async {
@@ -158,7 +180,7 @@ class _HomeworkListPageState extends State<HomeworkListPage> {
               child: Row(
                 children: [
                   GestureDetector(
-                    onTap: () async { await _hwService.toggleComplete(hw.id); await _loadData(); },
+                    onTap: () => _toggleComplete(hw),
                     child: Icon(
                       hw.isCompleted ? CupertinoIcons.check_mark_circled_solid : CupertinoIcons.circle,
                       size: 22,
