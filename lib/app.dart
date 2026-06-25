@@ -21,6 +21,10 @@ class CourseManagerApp extends StatelessWidget {
       theme: const CupertinoThemeData(
         brightness: Brightness.light,
         primaryColor: CupertinoColors.systemBlue,
+        scaffoldBackgroundColor: CupertinoColors.systemGroupedBackground,
+        textTheme: CupertinoTextThemeData(
+          primaryColor: CupertinoColors.label,
+        ),
       ),
       initialRoute: '/',
       onGenerateRoute: _onGenerateRoute,
@@ -174,20 +178,13 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildNarrowLayout() {
-    return Stack(
+    return Column(
       children: [
-        Positioned.fill(
-          child: _pages[_currentIndex],
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: AppleBottomBar(
-            currentIndex: _currentIndex,
-            onTap: (i) => setState(() => _currentIndex = i),
-            items: _navItems,
-          ),
+        Expanded(child: _pages[_currentIndex]),
+        AppleBottomBar(
+          currentIndex: _currentIndex,
+          onTap: (i) => setState(() => _currentIndex = i),
+          items: _navItems,
         ),
       ],
     );

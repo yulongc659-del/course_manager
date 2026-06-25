@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:excel/excel.dart';
 
 class ParsedRow {
@@ -206,7 +207,7 @@ class ImportService {
 
   JsonSchedule? parseScheduleJson(String jsonStr) {
     try {
-      final map = const JsonDecoder().convert(jsonStr) as Map<String, dynamic>;
+      final map = json.decode(jsonStr) as Map<String, dynamic>;
       final schedule = map['schedule'] as Map<String, dynamic>?;
       if (schedule == null) return null;
 

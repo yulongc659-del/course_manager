@@ -5,7 +5,9 @@ import '../../models/course.dart';
 import '../../services/homework_service.dart';
 import '../../services/course_service.dart';
 import '../../services/semester_service.dart';
-import '../../widgets/glass.dart';
+import '../../components/glass_card.dart';
+import '../../components/glass_navbar.dart';
+import '../../components/glass_segment.dart';
 
 class HomeworkListPage extends StatefulWidget {
   const HomeworkListPage({super.key});
@@ -42,16 +44,9 @@ class _HomeworkListPageState extends State<HomeworkListPage> {
     if (semester == null) return;
     final courses = await _courseService.getBySemester(semester.id);
     final map = <String, Course>{};
-    for (final c in courses) {
-      map[c.id] = c;
-    }
-    final homeworks = await _hwService.getAll();
-    if (mounted) {
-      setState(() {
-        _courseMap = map;
-        _homeworks = homeworks;
-      });
-    }
+    for (final c in courses) map[c.id] = c;
+    final hws = await _hwService.getAll();
+    if (mounted) setState(() { _courseMap = map; _homeworks = hws; });
   }
 
   List<Homework> get _filtered {
@@ -60,97 +55,60 @@ class _HomeworkListPageState extends State<HomeworkListPage> {
       final q = _searchQuery.toLowerCase();
       list = list.where((h) => h.title.toLowerCase().contains(q)).toList();
     }
-    if (_filterIndex == 1) {
-      list = list.where((h) => !h.isCompleted).toList();
-    } else if (_filterIndex == 2) {
-      list = list.where((h) => h.isCompleted).toList();
-    }
+    if (_filterIndex == 1) list = list.where((h) => !h.isCompleted).toList();
+    else if (_filterIndex == 2) list = list.where((h) => h.isCompleted).toList();
     return list;
   }
 
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(
-        middle: _searchMode
-            ? CupertinoSearchTextField(
-                controller: _searchController,
-                onChanged: (v) => setState(() => _searchQuery = v),
-                autofocus: true,
-              )
-            : const Text('作业'),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
+      child: SafeArea(
+        child: Column(
           children: [
-            GestureDetector(
-              onTap: () async {
-                final result = await Navigator.pushNamed(context, '/homework/edit');
-                if (result == true) _loadData();
-              },
-              child: const Icon(CupertinoIcons.add, size: 24),
+            GlassLargeTitle(
+              title: '作业',
+              actions: [
+                GlassNavAction(
+                  icon: CupertinoIcons.add_circled,
+                  onTap: () async {
+                    final result = await Navigator.pushNamed(context, '/homework/edit');
+                    if (result == true) _loadData();
+                  },
+                ),
+                GlassNavAction(
+                  icon: _searchMode ? CupertinoIcons.xmark : CupertinoIcons.search,
+                  onTap: () => setState(() { _searchMode = !_searchMode; _searchQuery = ''; _searchController.clear(); }),
+                ),
+              ],
             ),
-            const SizedBox(width: 14),
-            GestureDetector(
-              onTap: () {
-                setState(() {
-                  _searchMode = !_searchMode;
-                  _searchQuery = '';
-                  _searchController.clear();
-                });
-              },
-              child: Icon(
-                _searchMode ? CupertinoIcons.clear : CupertinoIcons.search,
-                size: 20,
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: GlassSegment<int>(
+                groupValue: _filterIndex,
+                children: const {
+                  0: Padding(padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6), child: Text('全部')),
+                  1: Padding(padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6), child: Text('未完成')),
+                  2: Padding(padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6), child: Text('已完成')),
+                },
+                onValueChanged: (v) => setState(() => _filterIndex = v),
               ),
             ),
+            const SizedBox(height: 12),
+            Expanded(child: _buildList()),
           ],
         ),
       ),
-      child: SafeArea(
-        child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: CupertinoSegmentedControl<int>(
-                  groupValue: _filterIndex,
-                  children: const {
-                    0: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      child: Text('全部'),
-                    ),
-                    1: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      child: Text('未完成'),
-                    ),
-                    2: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      child: Text('已完成'),
-                    ),
-                  },
-                  onValueChanged: (v) => setState(() => _filterIndex = v),
-                ),
-              ),
-              Expanded(child: _buildList()),
-            ],
-          ),
-        ),
     );
   }
 
   Widget _buildList() {
     if (_filtered.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(CupertinoIcons.doc_text, size: 48, color: CupertinoColors.systemGrey),
-            const SizedBox(height: 8),
-            Text(
-              _filterIndex == 2 ? '还没有已完成的作业' : '暂无作业',
-              style: const TextStyle(color: CupertinoColors.systemGrey),
-            ),
-          ],
-        ),
+      return GlassEmptyState(
+        icon: CupertinoIcons.doc_text,
+        message: _filterIndex == 2 ? '还没有已完成的作业' : '暂无作业',
+        hint: _filterIndex != 2 ? '点击右上角 ⊕ 添加作业' : null,
       );
     }
 
@@ -158,14 +116,10 @@ class _HomeworkListPageState extends State<HomeworkListPage> {
     final todayStr = DateFormat('yyyy-MM-dd').format(today);
     final tomorrowStr = DateFormat('yyyy-MM-dd').format(today.add(const Duration(days: 1)));
 
-    final expired = _filtered
-        .where((h) => h.dueDate.compareTo(todayStr) < 0 && !h.isCompleted).toList();
-    final todayList = _filtered
-        .where((h) => h.dueDate == todayStr && !h.isCompleted).toList();
-    final tomorrowList = _filtered
-        .where((h) => h.dueDate == tomorrowStr && !h.isCompleted).toList();
-    final later = _filtered
-        .where((h) => h.dueDate.compareTo(tomorrowStr) > 0 || h.isCompleted).toList();
+    final expired = _filtered.where((h) => h.dueDate.compareTo(todayStr) < 0 && !h.isCompleted).toList();
+    final todayList = _filtered.where((h) => h.dueDate == todayStr && !h.isCompleted).toList();
+    final tomorrowList = _filtered.where((h) => h.dueDate == tomorrowStr && !h.isCompleted).toList();
+    final later = _filtered.where((h) => h.dueDate.compareTo(tomorrowStr) > 0 || h.isCompleted).toList();
 
     final sections = <_HwSection>[];
     if (expired.isNotEmpty) sections.add(_HwSection('已过期', CupertinoColors.systemRed, expired));
@@ -173,9 +127,9 @@ class _HomeworkListPageState extends State<HomeworkListPage> {
     if (tomorrowList.isNotEmpty) sections.add(_HwSection('明天截止', CupertinoColors.systemOrange, tomorrowList));
     if (later.isNotEmpty) sections.add(_HwSection('之后', null, later));
 
-    return ListView.builder(
-      itemCount: sections.length,
-      itemBuilder: (_, i) => _buildSection(sections[i]),
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      children: sections.map((s) => _buildSection(s)).toList(),
     );
   }
 
@@ -184,55 +138,32 @@ class _HomeworkListPageState extends State<HomeworkListPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Text(
-            section.title,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: section.color ?? CupertinoColors.systemGrey,
-            ),
-          ),
+          padding: const EdgeInsets.fromLTRB(4, 16, 4, 6),
+          child: Text(section.title,
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                  color: section.color ?? CupertinoColors.systemGrey)),
         ),
         ...section.items.map((hw) {
           final course = _courseMap[hw.courseId];
-          final isExpired = hw.dueDate
-              .compareTo(DateFormat('yyyy-MM-dd').format(DateTime.now())) < 0 && !hw.isCompleted;
-
+          final isExpired = hw.dueDate.compareTo(DateFormat('yyyy-MM-dd').format(DateTime.now())) < 0 && !hw.isCompleted;
           return CupertinoContextMenu(
-            actions: [
-              CupertinoContextMenuAction(
-                isDestructiveAction: true,
-                child: const Text('删除'),
-                onPressed: () async {
-                  await _hwService.delete(hw.id);
-                  await _loadData();
-                },
-              ),
-            ],
+            actions: [CupertinoContextMenuAction(isDestructiveAction: true, child: const Text('删除'),
+                onPressed: () async { await _hwService.delete(hw.id); await _loadData(); })],
             child: GlassCard(
+              margin: const EdgeInsets.only(bottom: 12),
               onTap: () async {
-                final result = await Navigator.pushNamed(
-                    context, '/homework/edit', arguments: hw);
-                if (result == true) _loadData();
+                final r = await Navigator.pushNamed(context, '/homework/edit', arguments: hw);
+                if (r == true) _loadData();
               },
               child: Row(
                 children: [
                   GestureDetector(
-                    onTap: () async {
-                      await _hwService.toggleComplete(hw.id);
-                      await _loadData();
-                    },
+                    onTap: () async { await _hwService.toggleComplete(hw.id); await _loadData(); },
                     child: Icon(
-                      hw.isCompleted
-                          ? CupertinoIcons.check_mark_circled_solid
-                          : CupertinoIcons.circle,
-                      color: hw.isCompleted
-                          ? CupertinoColors.systemGreen
-                          : isExpired
-                              ? CupertinoColors.systemRed
-                              : CupertinoColors.systemGrey,
+                      hw.isCompleted ? CupertinoIcons.check_mark_circled_solid : CupertinoIcons.circle,
                       size: 22,
+                      color: hw.isCompleted ? CupertinoColors.systemGreen :
+                          isExpired ? CupertinoColors.systemRed : CupertinoColors.systemGrey,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -240,29 +171,16 @@ class _HomeworkListPageState extends State<HomeworkListPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          hw.title,
-                          style: TextStyle(
-                            fontSize: 15,
+                        Text(hw.title, style: TextStyle(fontSize: 15,
                             decoration: hw.isCompleted ? TextDecoration.lineThrough : null,
-                            color: hw.isCompleted
-                                ? CupertinoColors.systemGrey
-                                : isExpired
-                                    ? CupertinoColors.systemRed
-                                    : null,
-                          ),
-                        ),
-                        Text(
-                          '${course?.name ?? '未知课程'}  ${hw.dueDate}',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: isExpired ? CupertinoColors.systemRed : CupertinoColors.systemGrey,
-                          ),
-                        ),
+                            color: hw.isCompleted ? CupertinoColors.systemGrey :
+                                isExpired ? CupertinoColors.systemRed : null)),
+                        Text('${course?.name ?? ''}  ${hw.dueDate}',
+                            style: TextStyle(fontSize: 13,
+                                color: isExpired ? CupertinoColors.systemRed : CupertinoColors.systemGrey)),
                       ],
                     ),
                   ),
-                  const Icon(CupertinoIcons.chevron_right, size: 14, color: CupertinoColors.systemGrey),
                 ],
               ),
             ),

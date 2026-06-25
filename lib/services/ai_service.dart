@@ -99,6 +99,65 @@ ${examText.isNotEmpty ? examText : '(暂无考试)'}
     return summary;
   }
 
+  static Future<String?> getCachedWeeklySummary(String key) async {
+    final box = await _cache;
+    return box.get(key) as String?;
+  }
+
+  static Future<void> saveWeeklySummary(String key, String summary) async {
+    final box = await _cache;
+    await box.put(key, summary);
+  }
+
+  static Future<String> summarizeWeek(int week, List<String> courseNames,
+      String hwSummary, String examSummary, String courseServiceSummary) async {
+    final apiKey = await SettingsService.getApiKey();
+    if (apiKey.isEmpty) throw Exception('请先在设置中配置 API Key');
+    final baseUrl = await SettingsService.getBaseUrl();
+
+    final prompt = '''你是大学学习助手。根据第 $week 周的课程和任务，生成周总结和学习计划。
+
+本周课程：
+${courseNames.join('、')}
+
+作业：
+${hwSummary.isNotEmpty ? hwSummary : '无作业'}
+
+考试：
+${examSummary.isNotEmpty ? examSummary : '无考试'}
+
+请按格式输出：
+## 📅 第 $week 周学习计划
+
+### 📚 课程重点
+(按天列出每天课程重点)
+
+### ✏️ 作业任务
+(本周需完成的作业清单)
+
+### ⏰ 时间安排建议
+(每天的时间分配建议)
+
+### 💡 复习重点
+(结合考试安排的复习建议)''';
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/chat/completions'),
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $apiKey'},
+      body: jsonEncode({
+        'model': 'deepseek-chat',
+        'messages': [{'role': 'user', 'content': prompt}],
+        'max_tokens': 2048,
+        'temperature': 0.7,
+      }),
+    );
+    if (response.statusCode != 200) {
+      final err = jsonDecode(response.body);
+      throw Exception(err['error']?['message'] ?? '请求失败');
+    }
+    return jsonDecode(response.body)['choices'][0]['message']['content'];
+  }
+
   static String _weekdayName(int day) {
     const names = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日'];
     return names[day];

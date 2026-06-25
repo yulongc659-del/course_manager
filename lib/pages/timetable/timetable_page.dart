@@ -8,7 +8,13 @@ import '../../services/semester_service.dart';
 import '../../services/course_service.dart';
 import '../../utils/constants.dart';
 import '../../widgets/timetable_grid.dart';
-import '../../widgets/glass.dart';
+import '../../services/ai_service.dart';
+import '../../services/homework_service.dart';
+import '../../services/exam_service.dart';
+import '../../components/glass_card.dart';
+import '../../components/glass_navbar.dart';
+import '../../components/glass_segment.dart';
+import '../../components/glass_dialog.dart';
 
 enum TimetableView { grid, week, month }
 
@@ -36,9 +42,10 @@ class _TimetablePageState extends State<TimetablePage> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
 
-  // 缓存
   Map<DateTime, List<Course>>? _cachedEvents;
   bool _eventsDirty = true;
+
+  bool _summaryLoading = false;
 
   @override
   void initState() {
@@ -79,20 +86,14 @@ class _TimetablePageState extends State<TimetablePage> {
     });
   }
 
-  List<Course> get _weekCourses {
-    return _courses
-        .where((c) =>
-            _currentWeek >= c.weekStart && _currentWeek <= c.weekEnd)
-        .toList();
-  }
+  List<Course> get _weekCourses => _courses
+      .where((c) => _currentWeek >= c.weekStart && _currentWeek <= c.weekEnd)
+      .toList();
 
   List<Course> get _filteredCourses {
     final q = _searchQuery.toLowerCase();
-    return _courses
-        .where((c) =>
-            c.name.toLowerCase().contains(q) ||
-            c.teacher.toLowerCase().contains(q))
-        .toList();
+    return _courses.where((c) =>
+        c.name.toLowerCase().contains(q) || c.teacher.toLowerCase().contains(q)).toList();
   }
 
   Map<DateTime, List<Course>> get _calendarEvents {
@@ -115,22 +116,18 @@ class _TimetablePageState extends State<TimetablePage> {
   DateTime? _weekAndDayToDate(int week, int dayOfWeek) {
     if (_currentSemester == null) return null;
     final semesterDate = DateTime.parse(_currentSemester!.createdAt);
-    int offsetToMonday = semesterDate.weekday - DateTime.monday;
+    final offsetToMonday = semesterDate.weekday - DateTime.monday;
     final monday = semesterDate.subtract(Duration(days: offsetToMonday));
     return monday.add(Duration(days: (week - 1) * 7 + (dayOfWeek - 1)));
   }
 
-  List<Course> _coursesForDay(DateTime day) {
-    return _calendarEvents[DateTime(day.year, day.month, day.day)] ?? [];
-  }
+  List<Course> _coursesForDay(DateTime day) =>
+      _calendarEvents[DateTime(day.year, day.month, day.day)] ?? [];
 
   @override
   Widget build(BuildContext context) {
-    final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
-
     if (_loading) {
       return CupertinoPageScaffold(
-        navigationBar: const CupertinoNavigationBar(middle: Text('课表')),
         child: const Center(child: CupertinoActivityIndicator()),
       );
     }
@@ -138,142 +135,114 @@ class _TimetablePageState extends State<TimetablePage> {
     final hasSearch = _searchQuery.isNotEmpty;
 
     return CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(
-        middle: _searchMode
-            ? CupertinoSearchTextField(
-                controller: _searchController,
-                onChanged: (v) => setState(() => _searchQuery = v),
-                autofocus: true,
-              )
-            : Text(_currentSemester?.name ?? '课程管理器'),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            GestureDetector(
+      backgroundColor: CupertinoTheme.of(context)
+          .scaffoldBackgroundColor ?? CupertinoColors.systemGroupedBackground,
+      child: SafeArea(
+        child: _currentSemester == null
+            ? _buildEmpty('请先创建学期', icon: CupertinoIcons.exclamationmark_circle)
+            : hasSearch
+                ? _buildSearchResults()
+                : _buildMainContent(),
+      ),
+    );
+  }
+
+  Widget _buildMainContent() {
+    final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
+    return Column(
+      children: [
+        GlassLargeTitle(
+          title: '课表',
+          subtitle: _currentSemester?.name,
+          actions: [
+            GlassNavAction(
+              icon: CupertinoIcons.add_circled,
               onTap: () async {
                 final result = await Navigator.pushNamed(context, '/course/edit');
                 if (result == true) _loadData();
               },
-              child: const Icon(CupertinoIcons.add, size: 24),
             ),
-            if (!_searchMode) ...[
-              const SizedBox(width: 14),
-              GestureDetector(
-                onTap: () => setState(() {
-                  _searchMode = !_searchMode;
-                  _searchQuery = '';
-                  _searchController.clear();
-                }),
-                child: const Icon(CupertinoIcons.search, size: 20),
-              ),
-            ] else
-              GestureDetector(
-                onTap: () => setState(() {
-                  _searchMode = false;
-                  _searchQuery = '';
-                  _searchController.clear();
-                }),
-                child: const Icon(CupertinoIcons.clear, size: 20),
-              ),
-            const SizedBox(width: 12),
-            GestureDetector(
+            GlassNavAction(
+              icon: CupertinoIcons.doc_on_clipboard,
               onTap: () async {
                 final result = await Navigator.pushNamed(context, '/import');
                 if (result == true) _loadData();
               },
-              child: const Icon(CupertinoIcons.doc_on_clipboard, size: 20),
             ),
-            const SizedBox(width: 12),
-            GestureDetector(
+            GlassNavAction(
+              icon: _searchMode ? CupertinoIcons.xmark : CupertinoIcons.search,
+              onTap: () => setState(() {
+                _searchMode = !_searchMode;
+                _searchQuery = '';
+                _searchController.clear();
+              }),
+            ),
+            GlassNavAction(
+              icon: CupertinoIcons.gear,
               onTap: () => Navigator.pushNamed(context, '/settings'),
-              child: const Icon(CupertinoIcons.gear, size: 20),
             ),
           ],
         ),
-      ),
-      child: SafeArea(
-        child: _currentSemester == null
-            ? Center(
-                child: Text('请先创建学期',
-                    style: TextStyle(color: CupertinoColors.systemGrey)),
-              )
-            : hasSearch
-                ? _buildSearchResults()
-                : Column(
-                    children: [
-                      _buildViewToggle(),
-                      if (_view == TimetableView.grid) ...[
-                        _buildWeekSelector(),
-                        Expanded(
-                          child: _weekCourses.isEmpty
-                              ? Center(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(CupertinoIcons.calendar,
-                                          size: 48, color: CupertinoColors.systemGrey),
-                                      const SizedBox(height: 8),
-                                      Text('第 $_currentWeek 周没有课程',
-                                          style: const TextStyle(
-                                              color: CupertinoColors.systemGrey)),
-                                    ],
-                                  ),
-                                )
-                              : RepaintBoundary(
-                                child: TimetableGrid(
-                                  courses: _weekCourses,
-                                  onCourseTap: (course) {
-                                    Navigator.pushNamed(
-                                      context,
-                                      '/course/detail',
-                                      arguments: course.id,
-                                    );
-                                  },
-                                ),
-                              ),
-                        ),
-                      ] else
-                        Expanded(child: _buildCalendar()),
-                    ],
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: _buildViewToggle(),
+        ),
+
+        const SizedBox(height: 12),
+
+        // Content
+        if (_view == TimetableView.grid) ...[
+          _buildWeekSelector(),
+          const SizedBox(height: 8),
+          _buildAiWeekButton(),
+          const SizedBox(height: 12),
+          Expanded(
+            child: _weekCourses.isEmpty
+                ? _buildEmpty('本周没有课程',
+                    icon: CupertinoIcons.calendar,
+                    hint: '点击右上角 ⊕ 添加课程')
+                : RepaintBoundary(
+                    child: TimetableGrid(
+                      courses: _weekCourses,
+                      onCourseTap: (course) => Navigator.pushNamed(
+                          context, '/course/detail', arguments: course.id),
+                    ),
                   ),
-      ),
+          ),
+        ] else
+          Expanded(child: _buildCalendar()),
+      ],
     );
   }
+
+  // Uses GlassNavAction from components
 
   Widget _buildWeekSelector() {
     return GestureDetector(
       onHorizontalDragEnd: (details) {
         if (details.primaryVelocity == null) return;
-        if (details.primaryVelocity! < 0 && _currentWeek < 20) {
-          setState(() => _currentWeek++);
-        } else if (details.primaryVelocity! > 0 && _currentWeek > 1) {
-          setState(() => _currentWeek--);
-        }
+        if (details.primaryVelocity! < 0 && _currentWeek < 20) _currentWeek++;
+        else if (details.primaryVelocity! > 0 && _currentWeek > 1) _currentWeek--;
+        setState(() {});
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            Text('第 $_currentWeek 周',
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+            const Spacer(),
             CupertinoButton(
               padding: EdgeInsets.zero,
-              onPressed: _currentWeek > 1
-                  ? () => setState(() => _currentWeek--)
-                  : null,
-              child: const Icon(CupertinoIcons.chevron_left, size: 20),
+              onPressed: _currentWeek > 1 ? () { _currentWeek--; setState(() {}); } : null,
+              child: const Icon(CupertinoIcons.chevron_left, size: 18),
             ),
-            const SizedBox(width: 16),
-            Text(
-              '第 $_currentWeek 周',
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 8),
             CupertinoButton(
               padding: EdgeInsets.zero,
-              onPressed: _currentWeek < 20
-                  ? () => setState(() => _currentWeek++)
-                  : null,
-              child: const Icon(CupertinoIcons.chevron_right, size: 20),
+              onPressed: _currentWeek < 20 ? () { _currentWeek++; setState(() {}); } : null,
+              child: const Icon(CupertinoIcons.chevron_right, size: 18),
             ),
           ],
         ),
@@ -282,160 +251,103 @@ class _TimetablePageState extends State<TimetablePage> {
   }
 
   Widget _buildViewToggle() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          CupertinoSegmentedControl<TimetableView>(
-            groupValue: _view,
-            children: const {
-              TimetableView.grid: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                child: Icon(CupertinoIcons.square_grid_2x2, size: 18),
-              ),
-              TimetableView.week: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                child: Icon(CupertinoIcons.calendar, size: 18),
-              ),
-              TimetableView.month: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                child: Icon(CupertinoIcons.calendar_circle, size: 18),
-              ),
-            },
-            onValueChanged: (v) {
-              if (v == null) return;
-              setState(() {
-                _view = v;
-                _calendarFormat = v == TimetableView.month
-                    ? tc.CalendarFormat.month
-                    : tc.CalendarFormat.week;
-              });
-            },
-          ),
-        ],
-      ),
+    return GlassSegmentIcon<TimetableView>(
+      groupValue: _view,
+      icons: const {
+        TimetableView.grid: CupertinoIcons.square_grid_2x2,
+        TimetableView.week: CupertinoIcons.calendar,
+        TimetableView.month: CupertinoIcons.calendar_circle,
+      },
+      onValueChanged: (v) {
+        _calendarFormat = v == TimetableView.month
+            ? tc.CalendarFormat.month : tc.CalendarFormat.week;
+        setState(() => _view = v);
+      },
     );
   }
 
   Widget _buildCalendar() {
-    final events = _calendarEvents;
-
     return Material(
       type: MaterialType.canvas,
       color: CupertinoTheme.of(context).brightness == Brightness.dark
-          ? CupertinoColors.darkBackgroundGray
-          : CupertinoColors.systemBackground,
+          ? CupertinoColors.darkBackgroundGray : CupertinoColors.systemBackground,
       child: Column(
-      children: [
-        tc.TableCalendar<Course>(
-          firstDay: DateTime(2024, 1, 1),
-          lastDay: DateTime(2030, 12, 31),
-          focusedDay: _focusedDay,
-          calendarFormat: _calendarFormat,
-          availableCalendarFormats: const {
-            tc.CalendarFormat.week: '周',
-            tc.CalendarFormat.month: '月',
-          },
-          onFormatChanged: (format) {
-            setState(() => _calendarFormat = format);
-          },
-          selectedDayPredicate: (day) =>
-              day.year == _focusedDay.year &&
-              day.month == _focusedDay.month &&
-              day.day == _focusedDay.day,
-          onDaySelected: (selectedDay, _) {
-            setState(() => _focusedDay = selectedDay);
-          },
-          onPageChanged: (day) {
-            setState(() => _focusedDay = day);
-          },
-          eventLoader: (day) {
-            return events[DateTime(day.year, day.month, day.day)] ?? [];
-          },
-          calendarStyle: tc.CalendarStyle(
-            markersMaxCount: 3,
-            markerDecoration: BoxDecoration(
-              color: CupertinoTheme.of(context).primaryColor.withValues(alpha: 0.3),
-              shape: BoxShape.circle,
+        children: [
+          tc.TableCalendar<Course>(
+            firstDay: DateTime(2024, 1, 1),
+            lastDay: DateTime(2030, 12, 31),
+            focusedDay: _focusedDay,
+            calendarFormat: _calendarFormat,
+            availableCalendarFormats: const {
+              tc.CalendarFormat.week: '周',
+              tc.CalendarFormat.month: '月',
+            },
+            onFormatChanged: (f) => setState(() => _calendarFormat = f),
+            selectedDayPredicate: (day) =>
+                day.year == _focusedDay.year && day.month == _focusedDay.month && day.day == _focusedDay.day,
+            onDaySelected: (selectedDay, _) => setState(() => _focusedDay = selectedDay),
+            onPageChanged: (day) => setState(() => _focusedDay = day),
+            eventLoader: (day) => _calendarEvents[DateTime(day.year, day.month, day.day)] ?? [],
+            calendarStyle: tc.CalendarStyle(
+              markersMaxCount: 3,
+              markerDecoration: BoxDecoration(
+                color: CupertinoTheme.of(context).primaryColor.withValues(alpha: 0.3),
+                shape: BoxShape.circle,
+              ),
+              defaultTextStyle: const TextStyle(fontSize: 14),
+              weekendTextStyle: const TextStyle(fontSize: 14),
             ),
-            defaultTextStyle: const TextStyle(fontSize: 14),
-            weekendTextStyle: const TextStyle(fontSize: 14),
+            headerStyle: const tc.HeaderStyle(formatButtonVisible: false, titleCentered: true),
           ),
-          headerStyle: const tc.HeaderStyle(
-            formatButtonVisible: false,
-            titleCentered: true,
-          ),
-        ),
-        Container(height: 1, color: CupertinoDynamicColor.resolve(CupertinoColors.systemGrey5, context)),
-        Expanded(child: _buildDayDetail()),
-      ],
+          Container(height: 1, color: CupertinoDynamicColor.resolve(CupertinoColors.systemGrey5, context)),
+          Expanded(child: _buildDayDetail()),
+        ],
       ),
     );
   }
 
   Widget _buildDayDetail() {
     final selectedEvents = _coursesForDay(_focusedDay);
-
     if (selectedEvents.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(CupertinoIcons.calendar, size: 40, color: CupertinoColors.systemGrey),
+            Icon(CupertinoIcons.calendar, size: 36, color: CupertinoColors.systemGrey),
             const SizedBox(height: 8),
-            Text(
-              '${DateFormat('M月d日 EEEE', 'zh_CN').format(_focusedDay)} 无课程',
-              style: const TextStyle(color: CupertinoColors.systemGrey),
-            ),
+            Text('${DateFormat('M月d日 EEEE', 'zh_CN').format(_focusedDay)} 无课程',
+                style: const TextStyle(color: CupertinoColors.systemGrey, fontSize: 15)),
           ],
         ),
       );
     }
-
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       children: [
-        Text(
-          DateFormat('M月d日 EEEE', 'zh_CN').format(_focusedDay),
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 8),
+        Text(DateFormat('M月d日 EEEE', 'zh_CN').format(_focusedDay),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 12),
         ...selectedEvents.map((course) {
           final color = courseColor(course.color);
           return GlassCard(
-            onTap: () => Navigator.pushNamed(
-                context, '/course/detail', arguments: course.id),
+            margin: const EdgeInsets.only(bottom: 12),
+            onTap: () => Navigator.pushNamed(context, '/course/detail', arguments: course.id),
             child: Row(
               children: [
-                Container(
-                  width: 4,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
+                Container(width: 4, height: 36,
+                    decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(course.name,
-                          style: const TextStyle(
-                              fontSize: 15, fontWeight: FontWeight.w500)),
-                      Text(
-                        '${course.periodStart}-${course.periodEnd}节  '
-                        '${course.classroom.isNotEmpty ? course.classroom : ''}'
-                        '${course.teacher.isNotEmpty ? '  ${course.teacher}' : ''}',
-                        style: const TextStyle(
-                            fontSize: 13, color: CupertinoColors.systemGrey),
-                      ),
+                      Text(course.name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                      Text('${course.periodStart}-${course.periodEnd}节  ${course.classroom}',
+                          style: const TextStyle(fontSize: 13, color: CupertinoColors.systemGrey)),
                     ],
                   ),
                 ),
-                const Icon(CupertinoIcons.chevron_right,
-                    size: 16, color: CupertinoColors.systemGrey),
+                const Icon(CupertinoIcons.chevron_right, size: 14, color: CupertinoColors.systemGrey),
               ],
             ),
           );
@@ -446,47 +358,28 @@ class _TimetablePageState extends State<TimetablePage> {
 
   Widget _buildSearchResults() {
     if (_filteredCourses.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(CupertinoIcons.search, size: 48, color: CupertinoColors.systemGrey),
-            const SizedBox(height: 8),
-            const Text('未找到匹配课程',
-                style: TextStyle(color: CupertinoColors.systemGrey)),
-          ],
-        ),
-      );
+      return _buildEmpty('未找到匹配课程', icon: CupertinoIcons.search);
     }
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: _filteredCourses.length,
-      itemBuilder: (context, index) {
-        final course = _filteredCourses[index];
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      children: _filteredCourses.map((course) {
         final color = courseColor(course.color);
         return GlassCard(
-          onTap: () => Navigator.pushNamed(
-              context, '/course/detail', arguments: course.id),
+          margin: const EdgeInsets.only(bottom: 12),
+          onTap: () => Navigator.pushNamed(context, '/course/detail', arguments: course.id),
           child: Row(
             children: [
-              Container(
-                width: 10, height: 10,
-                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-              ),
+              Container(width: 10, height: 10,
+                  decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(course.name,
-                        style: const TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.w500)),
+                    Text(course.name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
                     Text(
-                      '${course.teacher}  '
-                      '${weekdayLabels[course.dayOfWeek - 1]} '
-                      '${course.periodStart}-${course.periodEnd}节',
-                      style: const TextStyle(
-                          fontSize: 13, color: CupertinoColors.systemGrey),
+                      '${course.teacher}  ${weekdayLabels[course.dayOfWeek - 1]} ${course.periodStart}-${course.periodEnd}节',
+                      style: const TextStyle(fontSize: 13, color: CupertinoColors.systemGrey),
                     ),
                   ],
                 ),
@@ -494,7 +387,128 @@ class _TimetablePageState extends State<TimetablePage> {
             ],
           ),
         );
-      },
+      }).toList(),
     );
+  }
+
+  Widget _buildAiWeekButton() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: GestureDetector(
+        onTap: _summaryLoading ? null : _generateWeekSummary,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            gradient: LinearGradient(
+              colors: [
+                CupertinoColors.systemBlue.withValues(alpha: 0.08),
+                CupertinoColors.systemPurple.withValues(alpha: 0.06),
+              ],
+            ),
+            border: Border.all(
+              color: CupertinoColors.systemBlue.withValues(alpha: 0.15),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                _summaryLoading ? CupertinoIcons.clock : CupertinoIcons.sparkles,
+                size: 18,
+                color: CupertinoColors.systemBlue,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                _summaryLoading ? 'AI 正在生成...' : 'AI 生成第 $_currentWeek 周学习计划',
+                style: const TextStyle(
+                    fontSize: 14, fontWeight: FontWeight.w500, color: CupertinoColors.systemBlue),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _generateWeekSummary() async {
+    setState(() => _summaryLoading = true);
+    try {
+      final hwService = HomeworkService();
+      final examService = ExamService();
+      final allHw = await hwService.getAll();
+      final allExam = await examService.getAll();
+      final hwText = allHw.map((h) => '${h.title}(${h.dueDate})').join('; ');
+      final examText = allExam.map((e) => '${e.name}(${e.date})').join('; ');
+
+      final summary = await AiService.summarizeWeek(
+        _currentWeek,
+        _weekCourses.map((c) => c.name).toList(),
+        hwText,
+        examText,
+        '',
+      );
+      setState(() => _summaryLoading = false);
+      if (mounted) _showSummarySheet(summary);
+    } catch (e) {
+      setState(() => _summaryLoading = false);
+      if (mounted) {
+        showGlassDialog(context: context, title: '生成失败', content: e.toString());
+      }
+    }
+  }
+
+  void _showSummarySheet(String summary) {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (_) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.75,
+        ),
+        decoration: BoxDecoration(
+          color: CupertinoTheme.of(context).brightness == Brightness.dark
+              ? CupertinoColors.darkBackgroundGray
+              : CupertinoColors.systemGroupedBackground,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 8),
+              Container(width: 36, height: 5,
+                  decoration: BoxDecoration(color: CupertinoColors.systemGrey4, borderRadius: BorderRadius.circular(3))),
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(children: [
+                  const Icon(CupertinoIcons.sparkles, size: 18, color: CupertinoColors.systemBlue),
+                  const SizedBox(width: 6),
+                  Text('第 $_currentWeek 周 AI 学习计划',
+                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: const Icon(CupertinoIcons.xmark_circle_fill, size: 22, color: CupertinoColors.systemGrey),
+                  ),
+                ]),
+              ),
+              const SizedBox(height: 12),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  child: Text(summary, style: const TextStyle(fontSize: 14, height: 1.6)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmpty(String message, {IconData icon = CupertinoIcons.calendar, String? hint}) {
+    return GlassEmptyState(icon: icon, message: message, hint: hint);
   }
 }

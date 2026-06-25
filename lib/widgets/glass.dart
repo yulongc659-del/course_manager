@@ -100,20 +100,20 @@ class GlassCard extends StatelessWidget {
         margin: margin,
         decoration: BoxDecoration(
           color: isDark
-              ? CupertinoColors.darkBackgroundGray.withValues(alpha: 0.7)
-              : CupertinoColors.white.withValues(alpha: 0.85),
+              ? CupertinoColors.darkBackgroundGray.withValues(alpha: 0.85)
+              : CupertinoColors.systemBackground.withValues(alpha: 0.92),
           borderRadius: BorderRadius.circular(borderRadius),
           border: Border.all(
             color: CupertinoDynamicColor.resolve(
-                CupertinoColors.systemGrey5, context),
+                CupertinoColors.systemGrey4, context).withValues(alpha: 0.25),
             width: 0.5,
           ),
           boxShadow: [
             BoxShadow(
               color: CupertinoDynamicColor.resolve(
-                  CupertinoColors.systemGrey4, context).withValues(alpha: 0.3),
-              blurRadius: 6 * elevation,
-              offset: Offset(0, 2 * elevation),
+                  CupertinoColors.systemGrey4, context).withValues(alpha: 0.08),
+              blurRadius: 3 * elevation,
+              offset: Offset(0, 1 * elevation),
             ),
           ],
         ),
@@ -197,18 +197,18 @@ class AppleBottomBar extends StatelessWidget {
         border: Border(
           top: BorderSide(
             color: CupertinoDynamicColor.resolve(
-                CupertinoColors.systemGrey5, context),
+                CupertinoColors.systemGrey4, context).withValues(alpha: 0.3),
             width: 0.5,
           ),
         ),
       ),
       child: ClipRRect(
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
           child: Container(
             color: isDark
-                ? CupertinoColors.darkBackgroundGray.withValues(alpha: 0.85)
-                : CupertinoColors.lightBackgroundGray.withValues(alpha: 0.85),
+                ? CupertinoColors.systemBackground.withValues(alpha: 0.88)
+                : CupertinoColors.lightBackgroundGray.withValues(alpha: 0.92),
             padding: const EdgeInsets.only(top: 6),
             child: SafeArea(
               top: false,
@@ -229,18 +229,20 @@ class AppleBottomBar extends StatelessWidget {
                             selected ? item.activeIcon : item.icon,
                             size: 24,
                             color: selected
-                                ? CupertinoTheme.of(context).primaryColor
-                                : CupertinoColors.systemGrey,
+                                ? CupertinoColors.systemBlue
+                                : CupertinoDynamicColor.resolve(
+                                    CupertinoColors.systemGrey2, context),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             item.label,
                             style: TextStyle(
                               fontSize: 10,
-                              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                              fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
                               color: selected
-                                  ? CupertinoTheme.of(context).primaryColor
-                                  : CupertinoColors.systemGrey,
+                                  ? CupertinoColors.systemBlue
+                                  : CupertinoDynamicColor.resolve(
+                                      CupertinoColors.systemGrey, context),
                             ),
                           ),
                         ],

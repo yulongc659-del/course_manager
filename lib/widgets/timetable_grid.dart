@@ -42,7 +42,7 @@ class TimetableGrid extends StatelessWidget {
   Widget _buildHeader(Color borderColor, Color headerColor) {
     return Row(
       children: [
-        _cell('', 56, isHeader: true, borderColor: borderColor, headerColor: headerColor),
+        _cell('时间', 68, isHeader: true, borderColor: borderColor, headerColor: headerColor),
         ...List.generate(7, (d) {
           return _cell(weekdayLabels[d], 74, isHeader: true,
               borderColor: borderColor, headerColor: headerColor);
@@ -54,14 +54,41 @@ class TimetableGrid extends StatelessWidget {
   Widget _buildRow(int periodIndex, Color borderColor, Color headerColor) {
     return Row(
       children: [
-        _cell(periodLabels[periodIndex], 56, isHeader: true,
-            borderColor: borderColor, headerColor: headerColor),
+        _periodCell(periodIndex, borderColor, headerColor),
         ...List.generate(7, (dayIndex) {
           final course = _findCourse(dayIndex + 1, periodIndex);
           if (course != null) return _courseCell(course);
           return _cell('', 74, borderColor: borderColor, headerColor: headerColor);
         }),
       ],
+    );
+  }
+
+  Widget _periodCell(int index, Color borderColor, Color headerColor) {
+    return Container(
+      width: 68,
+      height: 72,
+      decoration: BoxDecoration(
+        border: Border.all(color: borderColor, width: 0.5),
+        color: headerColor,
+      ),
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            periodLabels[index],
+            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500),
+          ),
+          Text(
+            periodTimes[index],
+            style: TextStyle(
+              fontSize: 8,
+              color: CupertinoColors.systemGrey.withValues(alpha: 0.7),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -83,7 +110,7 @@ class TimetableGrid extends StatelessWidget {
       onTap: () => onCourseTap?.call(course),
       child: Container(
         width: 74,
-        height: 60,
+        height: 72,
         margin: const EdgeInsets.all(2),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.88),
@@ -96,7 +123,7 @@ class TimetableGrid extends StatelessWidget {
             ),
           ],
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -110,12 +137,22 @@ class TimetableGrid extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
+            if (course.teacher.isNotEmpty)
+              Text(
+                course.teacher,
+                style: TextStyle(
+                  color: CupertinoColors.white.withValues(alpha: 0.75),
+                  fontSize: 8,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             if (course.classroom.isNotEmpty)
               Text(
                 course.classroom,
                 style: TextStyle(
-                  color: CupertinoColors.white.withValues(alpha: 0.8),
-                  fontSize: 9,
+                  color: CupertinoColors.white.withValues(alpha: 0.65),
+                  fontSize: 8,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -133,7 +170,7 @@ class TimetableGrid extends StatelessWidget {
   }) {
     return Container(
       width: width,
-      height: isHeader ? 34 : 60,
+      height: isHeader ? 34 : 72,
       decoration: BoxDecoration(
         border: Border.all(color: borderColor, width: 0.5),
         color: isHeader ? headerColor : null,

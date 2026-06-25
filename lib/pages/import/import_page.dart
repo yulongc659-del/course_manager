@@ -23,8 +23,15 @@ class _ImportPageState extends State<ImportPage> {
   bool _loading = false;
 
   // JSON state
+  final _jsonController = TextEditingController();
   JsonSchedule? _jsonSchedule;
   String? _jsonFileName;
+
+  @override
+  void dispose() {
+    _jsonController.dispose();
+    super.dispose();
+  }
 
   Future<void> _pickFile() async {
     final result = await FilePicker.platform.pickFiles(
@@ -128,6 +135,23 @@ class _ImportPageState extends State<ImportPage> {
     if (mounted) _showSuccess('成功导入 $imported 门课程');
   }
 
+  void _parsePastedJson() {
+    final text = _jsonController.text.trim();
+    if (text.isEmpty) {
+      _showError('请输入', '请先粘贴 JSON 课表代码');
+      return;
+    }
+    final schedule = _importService.parseScheduleJson(text);
+    if (schedule == null || schedule.courses.isEmpty) {
+      _showError('解析失败', 'JSON 格式不正确');
+      return;
+    }
+    setState(() {
+      _jsonSchedule = schedule;
+      _jsonFileName = '粘贴的 JSON';
+    });
+  }
+
   Future<void> _doJsonImport() async {
     if (_jsonSchedule == null) return;
     final semester = await SemesterService().getCurrent();
@@ -191,10 +215,38 @@ class _ImportPageState extends State<ImportPage> {
                 onTap: _pickFile,
               ),
               const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  color: CupertinoColors.systemGrey6,
+                ),
+                child: Column(
+                  children: [
+                    CupertinoTextField(
+                      controller: _jsonController,
+                      placeholder: '直接粘贴 JSON 课表代码...',
+                      maxLines: 6,
+                      padding: const EdgeInsets.all(12),
+                      decoration: const BoxDecoration(
+                        color: CupertinoColors.systemGrey6,
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: CupertinoButton(
+                        onPressed: _parsePastedJson,
+                        child: const Text('解析 JSON', style: TextStyle(fontSize: 14)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
               _buildImportCard(
                 icon: CupertinoIcons.doc_text,
-                title: 'JSON 课表',
-                subtitle: '教务系统导出的 JSON 格式课表',
+                title: '选择 JSON 文件',
+                subtitle: '或选择 .json 文件导入',
                 onTap: _pickJson,
               ),
               const SizedBox(height: 10),
@@ -318,7 +370,7 @@ class _ImportPageState extends State<ImportPage> {
   }
 
   @override
-  Widget_buildMapping() {
+  Widget _buildMapping() {
     if (_result == null) return const SizedBox.shrink();
     final mapping = _result!.columnMapping;
     final labels = {
