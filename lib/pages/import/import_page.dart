@@ -6,6 +6,7 @@ import '../../services/import_service.dart';
 import '../../services/course_service.dart';
 import '../../services/semester_service.dart';
 import '../../widgets/glass.dart';
+import '../../utils/constants.dart';
 
 class ImportPage extends StatefulWidget {
   const ImportPage({super.key});
@@ -20,6 +21,10 @@ class _ImportPageState extends State<ImportPage> {
   ImportResult? _result;
   String? _fileName;
   bool _loading = false;
+
+  // JSON state
+  JsonSchedule? _jsonSchedule;
+  String? _jsonFileName;
 
   Future<void> _pickFile() async {
     final result = await FilePicker.platform.pickFiles(
@@ -44,16 +49,34 @@ class _ImportPageState extends State<ImportPage> {
       }
       setState(() => _result = parsed);
     } catch (e) {
-      if (mounted) {
-        showCupertinoDialog(
-          context: context,
-          builder: (_) => CupertinoAlertDialog(
-            title: const Text('解析失败'),
-            content: Text('$e'),
-            actions: [CupertinoDialogAction(child: const Text('好'), onPressed: () => Navigator.pop(context))],
-          ),
-        );
+      if (mounted) _showError('解析失败', '$e');
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _pickJson() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['json'],
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    setState(() {
+      _jsonFileName = result.files.first.name;
+      _loading = true;
+    });
+
+    try {
+      final content = utf8.decode(result.files.first.bytes!, allowMalformed: true);
+      final schedule = _importService.parseScheduleJson(content);
+      if (schedule == null || schedule.courses.isEmpty) {
+        if (mounted) _showError('解析失败', '无法识别 JSON 格式');
+        return;
       }
+      setState(() => _jsonSchedule = schedule);
+    } catch (e) {
+      if (mounted) _showError('解析失败', '$e');
     } finally {
       setState(() => _loading = false);
     }
@@ -73,14 +96,7 @@ class _ImportPageState extends State<ImportPage> {
     final weekCol = mapping['week'];
 
     if (nameCol == null || dayCol == null || periodCol == null) {
-      showCupertinoDialog(
-        context: context,
-        builder: (_) => const CupertinoAlertDialog(
-          title: Text('缺少字段'),
-          content: Text('课程名、星期、节次不能为空'),
-          actions: [CupertinoDialogAction(child: Text('好'))],
-        ),
-      );
+      if (mounted) _showError('缺少字段', '课程名、星期、节次不能为空');
       return;
     }
 
@@ -99,34 +115,63 @@ class _ImportPageState extends State<ImportPage> {
           : (1, 16);
 
       await courseService.create(Course(
-        id: '',
-        semesterId: semester.id,
-        name: name,
+        id: '', semesterId: semester.id, name: name,
         teacher: teacherCol != null ? (row.fields[teacherCol] ?? '').trim() : '',
         classroom: classroomCol != null ? (row.fields[classroomCol] ?? '').trim() : '',
-        dayOfWeek: day,
-        periodStart: period.$1,
-        periodEnd: period.$2,
-        weekStart: week?.$1 ?? 1,
-        weekEnd: week?.$2 ?? 16,
+        dayOfWeek: day, periodStart: period.$1, periodEnd: period.$2,
+        weekStart: week?.$1 ?? 1, weekEnd: week?.$2 ?? 16,
         color: imported % 8,
       ));
       imported++;
     }
 
-    if (mounted) {
-      showCupertinoDialog(
-        context: context,
-        builder: (_) => CupertinoAlertDialog(
-          title: const Text('导入完成'),
-          content: Text('成功导入 $imported 门课程'),
-          actions: [CupertinoDialogAction(child: const Text('好'), onPressed: () {
-            Navigator.pop(context);
-            Navigator.pop(context, true);
-          })],
-        ),
-      );
+    if (mounted) _showSuccess('成功导入 $imported 门课程');
+  }
+
+  Future<void> _doJsonImport() async {
+    if (_jsonSchedule == null) return;
+    final semester = await SemesterService().getCurrent();
+    if (semester == null) return;
+
+    final courseService = CourseService();
+    int imported = 0;
+
+    for (final c in _jsonSchedule!.courses) {
+      await courseService.create(Course(
+        id: '', semesterId: semester.id, name: c.name,
+        teacher: c.teacher,
+        classroom: c.location,
+        dayOfWeek: c.dayOfWeek, periodStart: c.periodStart, periodEnd: c.periodEnd,
+        weekStart: c.weekStart, weekEnd: c.weekEnd,
+        color: imported % 8,
+      ));
+      imported++;
     }
+
+    if (mounted) _showSuccess('成功导入 $imported 门课程');
+  }
+
+  void _showError(String title, String msg) {
+    showCupertinoDialog(
+      context: context,
+      builder: (_) => CupertinoAlertDialog(
+        title: Text(title), content: Text(msg),
+        actions: [CupertinoDialogAction(child: const Text('好'), onPressed: () => Navigator.pop(context))],
+      ),
+    );
+  }
+
+  void _showSuccess(String msg) {
+    showCupertinoDialog(
+      context: context,
+      builder: (_) => CupertinoAlertDialog(
+        title: const Text('导入完成'), content: Text(msg),
+        actions: [CupertinoDialogAction(child: const Text('好'), onPressed: () {
+          Navigator.pop(context);
+          Navigator.pop(context, true);
+        })],
+      ),
+    );
   }
 
   @override
@@ -139,63 +184,85 @@ class _ImportPageState extends State<ImportPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              AppleButton(
-                onPressed: _pickFile,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(CupertinoIcons.doc_on_clipboard, size: 18),
-                    const SizedBox(width: 8),
-                    const Text('选择 Excel 或 CSV 文件',
-                        style: TextStyle(fontSize: 15)),
-                  ],
-                ),
+              _buildImportCard(
+                icon: CupertinoIcons.table,
+                title: 'Excel / CSV 文件',
+                subtitle: '支持 .xlsx .xls .csv 格式，自动匹配列',
+                onTap: _pickFile,
               ),
-              const SizedBox(height: 8),
-              const Text(
-                '支持 .xlsx / .xls / .csv 格式，自动识别字段映射。',
-                style: TextStyle(color: CupertinoColors.systemGrey, fontSize: 13),
-                textAlign: TextAlign.center,
+              const SizedBox(height: 10),
+              _buildImportCard(
+                icon: CupertinoIcons.doc_text,
+                title: 'JSON 课表',
+                subtitle: '教务系统导出的 JSON 格式课表',
+                onTap: _pickJson,
               ),
-              if (_fileName != null) ...[
-                const SizedBox(height: 8),
-                Text('已选择: $_fileName',
-                    style: const TextStyle(color: CupertinoColors.systemGrey),
-                    textAlign: TextAlign.center),
+              const SizedBox(height: 10),
+              _buildImportCard(
+                icon: CupertinoIcons.camera,
+                title: '拍照 OCR 识别',
+                subtitle: 'iOS 版本中提供，设备端识别',
+                onTap: null,
+              ),
+
+              if (_loading) ...[
+                const SizedBox(height: 16),
+                const Center(child: CupertinoActivityIndicator()),
               ],
-              if (_loading)
-                const Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Center(child: CupertinoActivityIndicator()),
-                ),
+
+              // Excel preview
               if (_result != null) ...[
                 const SizedBox(height: 16),
                 _buildMapping(),
                 const SizedBox(height: 16),
-                const Text('数据预览 (前 5 行)',
-                    style: TextStyle(fontWeight: FontWeight.w600)),
+                const Text('数据预览 (前 5 行)', style: TextStyle(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 8),
                 _buildPreview(),
                 const SizedBox(height: 24),
-                CupertinoButton.filled(
-                  onPressed: _doImport,
-                  child: const Text('确认导入'),
-                ),
+                CupertinoButton.filled(onPressed: _doImport, child: const Text('确认导入')),
               ],
-              const SizedBox(height: 40),
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      Icon(CupertinoIcons.camera, size: 32, color: CupertinoColors.systemGrey),
-                      SizedBox(height: 8),
-                      Text('拍照 OCR 识别将在 iOS 版本中提供',
-                          style: TextStyle(color: CupertinoColors.systemGrey, fontSize: 13)),
-                    ],
-                  ),
-                ),
-              ),
+
+              // JSON preview
+              if (_jsonSchedule != null) ...[
+                const SizedBox(height: 16),
+                Text('识别到 ${_jsonSchedule!.courses.length} 门课程',
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                ..._jsonSchedule!.courses.asMap().entries.map((e) {
+                  final c = e.value;
+                  final color = courseColor(e.key % 8);
+                  return GlassCard(
+                    margin: const EdgeInsets.symmetric(vertical: 3),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 10, height: 10,
+                          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(c.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                              Text(
+                                '${weekdayLabels[c.dayOfWeek - 1]} '
+                                '${c.periodStart}-${c.periodEnd}节  '
+                                '第${c.weekStart}-${c.weekEnd}周  '
+                                '${c.location.isNotEmpty ? c.location : ''}',
+                                style: const TextStyle(fontSize: 12, color: CupertinoColors.systemGrey),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+                const SizedBox(height: 24),
+                CupertinoButton.filled(onPressed: _doJsonImport, child: const Text('确认导入')),
+              ],
             ],
           ),
         ),
@@ -203,7 +270,55 @@ class _ImportPageState extends State<ImportPage> {
     );
   }
 
-  Widget _buildMapping() {
+  Widget _buildImportCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: CupertinoColors.systemGrey6,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44, height: 44,
+              decoration: BoxDecoration(
+                color: onTap != null
+                    ? CupertinoTheme.of(context).primaryColor.withValues(alpha: 0.1)
+                    : CupertinoColors.systemGrey4,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, size: 22,
+                  color: onTap != null ? CupertinoTheme.of(context).primaryColor : CupertinoColors.systemGrey),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                  Text(subtitle, style: const TextStyle(fontSize: 13, color: CupertinoColors.systemGrey)),
+                ],
+              ),
+            ),
+            Icon(
+              onTap != null ? CupertinoIcons.chevron_right : CupertinoIcons.lock,
+              size: 16, color: CupertinoColors.systemGrey,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget_buildMapping() {
     if (_result == null) return const SizedBox.shrink();
     final mapping = _result!.columnMapping;
     final labels = {
@@ -231,9 +346,7 @@ class _ImportPageState extends State<ImportPage> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(matched ?? '未识别',
-                        style: TextStyle(
-                            fontSize: 13,
-                            color: matched != null ? null : CupertinoColors.systemRed)),
+                        style: TextStyle(fontSize: 13, color: matched != null ? null : CupertinoColors.systemRed)),
                   ),
                 ],
               ),
@@ -263,23 +376,17 @@ class _ImportPageState extends State<ImportPage> {
             children: [
               TableRow(
                 decoration: BoxDecoration(color: CupertinoColors.systemGrey6),
-                children: headers.map((h) {
-                  return Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Text(h, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12)),
-                  );
-                }).toList(),
+                children: headers.map((h) => Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Text(h, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12)),
+                )).toList(),
               ),
-              ...preview.map((row) {
-                return TableRow(
-                  children: headers.map((h) {
-                    return Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Text(row.fields[h] ?? '', style: const TextStyle(fontSize: 12)),
-                    );
-                  }).toList(),
-                );
-              }),
+              ...preview.map((row) => TableRow(
+                children: headers.map((h) => Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Text(row.fields[h] ?? '', style: const TextStyle(fontSize: 12)),
+                )).toList(),
+              )),
             ],
           ),
         ),

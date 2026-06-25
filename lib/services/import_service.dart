@@ -179,4 +179,95 @@ class ImportService {
     if (single != null) return (single, single);
     return null;
   }
+
+  /// 解析不连续周数，如 "2-15, 17" → [(2,15), (17,17)]
+  List<(int, int)> parseWeekSegments(String text) {
+    final result = <(int, int)>[];
+    final segments = text.trim().split(RegExp(r'[,，]'));
+    for (final seg in segments) {
+      final cleaned = seg.trim().replaceAll('周', '').replaceAll('第', '');
+      final range = cleaned.split(RegExp(r'[\-~]'));
+      if (range.length >= 2) {
+        final s = int.tryParse(range[0].trim());
+        final e = int.tryParse(range[1].trim());
+        if (s != null && e != null) result.add((s, e));
+      } else {
+        final s = int.tryParse(cleaned);
+        if (s != null) result.add((s, s));
+      }
+    }
+    return result;
+  }
+
+  static const _dayMap = {
+    'monday': 1, 'tuesday': 2, 'wednesday': 3, 'thursday': 4,
+    'friday': 5, 'saturday': 6, 'sunday': 7,
+  };
+
+  JsonSchedule? parseScheduleJson(String jsonStr) {
+    try {
+      final map = const JsonDecoder().convert(jsonStr) as Map<String, dynamic>;
+      final schedule = map['schedule'] as Map<String, dynamic>?;
+      if (schedule == null) return null;
+
+      final courses = <JsonCourse>[];
+      for (final entry in schedule.entries) {
+        final day = _dayMap[entry.key.toString().toLowerCase()];
+        if (day == null) continue;
+        final list = entry.value as List<dynamic>? ?? [];
+        for (final item in list) {
+          final m = item as Map<String, dynamic>;
+          final teachers = (m['teachers'] as List<dynamic>?)?.join(', ') ?? '';
+          final weekSegments = parseWeekSegments((m['weeks'] as String?) ?? '1-16');
+          final periods = (m['periods'] as List<dynamic>?)?.map((e) => e as int).toList() ?? [1, 2];
+
+          for (final segment in weekSegments) {
+            courses.add(JsonCourse(
+              name: (m['course_name'] as String?) ?? '',
+              code: (m['course_code'] as String?) ?? '',
+              teacher: teachers,
+              location: (m['location'] as String?) ?? '',
+              dayOfWeek: day,
+              periodStart: periods.first,
+              periodEnd: periods.last,
+              weekStart: segment.$1,
+              weekEnd: segment.$2,
+            ));
+          }
+        }
+      }
+      return JsonSchedule(courses: courses);
+    } catch (e) {
+      return null;
+    }
+  }
+}
+
+class JsonCourse {
+  final String name;
+  final String code;
+  final String teacher;
+  final String location;
+  final int dayOfWeek;
+  final int periodStart;
+  final int periodEnd;
+  final int weekStart;
+  final int weekEnd;
+
+  JsonCourse({
+    required this.name,
+    this.code = '',
+    this.teacher = '',
+    this.location = '',
+    required this.dayOfWeek,
+    required this.periodStart,
+    required this.periodEnd,
+    this.weekStart = 1,
+    this.weekEnd = 16,
+  });
+}
+
+class JsonSchedule {
+  final List<JsonCourse> courses;
+  JsonSchedule({required this.courses});
 }
