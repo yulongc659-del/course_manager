@@ -191,63 +191,61 @@ class AppleBottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 6, 20, 6),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(26),
         child: BackdropFilter(
           filter: ds.AppGlass.barBlur,
           child: Container(
             decoration: ds.AppGlass.floatingBar(context),
-            padding: const EdgeInsets.only(top: 6, bottom: 0),
-            child: SafeArea(
-              top: false,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: List.generate(items.length, (i) {
-                  final item = items[i];
-                  final selected = i == currentIndex;
-                  return GestureDetector(
-                    onTap: () => onTap(i),
-                    behavior: HitTestBehavior.opaque,
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 2),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            selected ? item.activeIcon : item.icon,
-                            size: 24,
-                            color: selected
-                                ? CupertinoColors.systemBlue
-                                : CupertinoDynamicColor.resolve(
-                                    CupertinoColors.systemGrey2, context),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            item.label,
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
-                              color: selected
-                                  ? CupertinoColors.systemBlue
-                                  : CupertinoDynamicColor.resolve(
-                                      CupertinoColors.systemGrey, context),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }),
-              ),
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: _buildItems(context),
             ),
           ),
         ),
       ),
     );
+  }
+
+  List<Widget> _buildItems(BuildContext context) {
+    return List.generate(items.length, (i) {
+      final item = items[i];
+      final selected = i == currentIndex;
+      return GestureDetector(
+        onTap: () => onTap(i),
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          width: 60,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                selected ? item.activeIcon : item.icon,
+                size: 24,
+                color: selected
+                    ? CupertinoColors.systemBlue
+                    : CupertinoDynamicColor.resolve(CupertinoColors.systemGrey2, context),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                item.label,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
+                  color: selected
+                      ? CupertinoColors.systemBlue
+                      : CupertinoDynamicColor.resolve(CupertinoColors.systemGrey, context),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }).toList();
   }
 }
 

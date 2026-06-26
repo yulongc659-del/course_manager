@@ -215,28 +215,20 @@ class _TimetablePageState extends State<TimetablePage> {
           _buildAiWeekButton(),
           const SizedBox(height: 12),
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 90),
-              child: _weekCourses.isEmpty
-                ? _buildEmpty('本周没有课程',
-                    icon: CupertinoIcons.calendar,
-                    hint: '点击右上角 ⊕ 添加课程')
-                : RepaintBoundary(
-                    child: TimetableGrid(
-                      courses: _weekCourses,
-                      onCourseTap: (course) => Navigator.pushNamed(
-                          context, '/course/detail', arguments: course.id),
-                    ),
+            child: _weekCourses.isEmpty
+              ? _buildEmpty('本周没有课程',
+                  icon: CupertinoIcons.calendar,
+                  hint: '点击右上角 ⊕ 添加课程')
+              : RepaintBoundary(
+                  child: TimetableGrid(
+                    courses: _weekCourses,
+                    onCourseTap: (course) => Navigator.pushNamed(
+                        context, '/course/detail', arguments: course.id),
                   ),
-            ),
+                ),
           ),
         ] else
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 90),
-              child: _buildCalendar(),
-            ),
-          ),
+          Expanded(child: _buildCalendar()),
       ],
     );
   }
@@ -259,13 +251,13 @@ class _TimetablePageState extends State<TimetablePage> {
                 style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
             const Spacer(),
             CupertinoButton(
-              padding: EdgeInsets.zero,
+              // layout handled by Column
               onPressed: _currentWeek > 1 ? () { _currentWeek--; setState(() {}); } : null,
               child: const Icon(CupertinoIcons.chevron_left, size: 18),
             ),
             const SizedBox(width: 8),
             CupertinoButton(
-              padding: EdgeInsets.zero,
+              // layout handled by Column
               onPressed: _currentWeek < 20 ? () { _currentWeek++; setState(() {}); } : null,
               child: const Icon(CupertinoIcons.chevron_right, size: 18),
             ),
