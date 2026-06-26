@@ -53,7 +53,7 @@ widget_target.build_configurations.each do |config|
   config.build_settings['DEVELOPMENT_TEAM'] = ''
   config.build_settings['SKIP_INSTALL'] = 'YES'
   config.build_settings['SWIFT_VERSION'] = '5.0'
-  config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
+  config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
   config.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
   config.build_settings['TARGETED_DEVICE_FAMILY'] = '1,2'
   config.build_settings['ASSETCATALOG_COMPILER_APPICON_NAME'] = ''

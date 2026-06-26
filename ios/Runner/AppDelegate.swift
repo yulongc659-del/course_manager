@@ -22,46 +22,20 @@ import WidgetKit
       name: "com.course.manager/widget",
       binaryMessenger: controller.binaryMessenger
     )
-    channel.setMethodCallHandler { [weak self] (call, result) in
-      switch call.method {
-      case "updateWidget":
-        if let args = call.arguments as? [String: Any],
-           let jsonString = args["data"] as? String {
-          self?.saveWidgetData(jsonString)
-          WidgetData.reloadAllTimelines()
-          result(nil)
-        } else {
-          result(FlutterError(code: "INVALID_ARGS", message: "Missing data", details: nil))
+    channel.setMethodCallHandler { (call, result) in
+      if call.method == "updateWidget",
+         let args = call.arguments as? [String: Any],
+         let json = args["data"] as? String {
+        let defaults = UserDefaults(suiteName: "group.com.course.manager") ?? UserDefaults.standard
+        defaults.set(json, forKey: "widget_data")
+        defaults.synchronize()
+        if #available(iOS 14.0, *) {
+          WidgetCenter.shared.reloadAllTimelines()
         }
-      default:
-        result(FlutterMethodNotImplemented)
+        result(nil)
+      } else {
+        result(FlutterError(code: "INVALID_ARGS", message: nil, details: nil))
       }
-    }
-  }
-
-  private func saveWidgetData(_ json: String) {
-    let defaults = WidgetData.sharedDefaults()
-    defaults.set(json, forKey: "widget_data")
-    defaults.synchronize()
-  }
-}
-
-struct WidgetData {
-  static let appGroup = "group.com.course.manager"
-
-  static func sharedDefaults() -> UserDefaults {
-    return UserDefaults(suiteName: appGroup) ?? UserDefaults.standard
-  }
-
-  static func loadWidgetData() -> [String: Any]? {
-    guard let json = sharedDefaults().string(forKey: "widget_data"),
-          let data = json.data(using: .utf8) else { return nil }
-    return try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-  }
-
-  static func reloadAllTimelines() {
-    if #available(iOS 14.0, *) {
-      WidgetCenter.shared.reloadAllTimelines()
     }
   }
 }
