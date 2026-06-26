@@ -43,7 +43,7 @@ end
 
 # Info.plist
 widget_target.build_configurations.each do |config|
-  config.build_settings['INFOPLIST_FILE'] = '../TodayWidget/Info.plist'
+  config.build_settings['INFOPLIST_FILE'] = 'TodayWidget/Info.plist'
   config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.course.manager.TodayWidget'
   config.build_settings['PRODUCT_NAME'] = 'TodayWidget'
   config.build_settings['PRODUCT_MODULE_NAME'] = 'TodayWidget'
