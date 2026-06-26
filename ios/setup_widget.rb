@@ -63,7 +63,7 @@ embed_phase = main_target.copy_files_build_phases.find { |p| p.dst_subfolder_spe
 embed_phase.dst_path = '$(EXTENSIONS_FOLDER_PATH)'
 embed_phase.dst_subfolder_spec = '13'
 
-embed_ref = project.products_group.find { |p| p.name == 'TodayWidget.appex' } ||
+embed_ref = project.products_group.children.find { |p| p.name == 'TodayWidget.appex' } ||
   project.products_group.new_product_ref_for_target('TodayWidget', 'com.course.manager.TodayWidget')
 
 embed_phase.add_file_reference(embed_ref)
