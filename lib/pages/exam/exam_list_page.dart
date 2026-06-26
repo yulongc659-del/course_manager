@@ -53,21 +53,49 @@ class _ExamListPageState extends State<ExamListPage> {
   }
 
   Widget _buildEmpty() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(CupertinoIcons.clock, size: 56,
-              color: CupertinoColors.systemGrey.withValues(alpha: 0.4)),
-          const SizedBox(height: 16),
-          Text('暂无考试',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500,
-                  color: CupertinoColors.systemGrey.withValues(alpha: 0.6))),
-          const SizedBox(height: 6),
-          const Text('点击右上角 ⊕ 添加考试',
-              style: TextStyle(fontSize: 14, color: CupertinoColors.systemGrey)),
-        ],
-      ),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 16, 0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Expanded(
+                child: Text('考试',
+                    style: TextStyle(fontSize: 34, fontWeight: FontWeight.w700)),
+              ),
+              GestureDetector(
+                onTap: () async {
+                  final r = await Navigator.pushNamed(context, '/exam/edit');
+                  if (r == true) _loadData();
+                },
+                child: const Padding(
+                  padding: EdgeInsets.all(6),
+                  child: Icon(CupertinoIcons.add_circled, size: 22, color: CupertinoColors.systemBlue),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(CupertinoIcons.clock, size: 56,
+                    color: CupertinoColors.systemGrey.withValues(alpha: 0.4)),
+                const SizedBox(height: 16),
+                Text('暂无考试',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500,
+                        color: CupertinoColors.systemGrey.withValues(alpha: 0.6))),
+                const SizedBox(height: 6),
+                const Text('点击右上角 ⊕ 添加考试',
+                    style: TextStyle(fontSize: 14, color: CupertinoColors.systemGrey)),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 

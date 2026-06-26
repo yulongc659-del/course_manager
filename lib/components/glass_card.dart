@@ -1,4 +1,6 @@
 import 'package:flutter/cupertino.dart';
+import '../design_system/colors.dart';
+import '../design_system/radius.dart';
 
 class GlassCard extends StatelessWidget {
   final Widget child;
@@ -14,7 +16,7 @@ class GlassCard extends StatelessWidget {
     this.padding = const EdgeInsets.all(14),
     this.margin = EdgeInsets.zero,
     this.onTap,
-    this.borderRadius = 24,
+    this.borderRadius = 22,
     this.backgroundColor,
   });
 

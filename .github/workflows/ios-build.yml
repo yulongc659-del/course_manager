@@ -17,13 +17,25 @@ jobs:
           channel: 'stable'
 
       - run: flutter pub get
+
+      - name: Setup Widget Target
+        run: |
+          gem install xcodeproj 2>/dev/null
+          ruby ios/setup_widget.rb
+
       - run: flutter build ios --release --no-codesign
 
       - name: Create IPA
         run: |
-          mkdir Payload
+          mkdir -p Payload
           cp -r build/ios/iphoneos/Runner.app Payload/
+          # Copy widget extension
+          if [ -d "build/ios/iphoneos/TodayWidget.appex" ]; then
+            mkdir -p Payload/Runner.app/PlugIns
+            cp -r build/ios/iphoneos/TodayWidget.appex Payload/Runner.app/PlugIns/
+          fi
           ditto -c -k --sequesterRsrc --keepParent Payload course_manager.ipa
+        shell: bash
 
       - uses: actions/upload-artifact@v4
         with:

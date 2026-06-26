@@ -9,11 +9,12 @@ import '../../services/course_service.dart';
 import '../../utils/constants.dart';
 import '../../widgets/timetable_grid.dart';
 import '../../services/ai_service.dart';
+import '../../services/settings_service.dart';
+import '../../services/widget_service.dart';
 import '../../services/homework_service.dart';
 import '../../services/exam_service.dart';
 import '../../components/glass_card.dart';
 import '../../components/glass_navbar.dart';
-import '../../components/glass_segment.dart';
 import '../../components/glass_dialog.dart';
 
 enum TimetableView { grid, week, month }
@@ -44,6 +45,7 @@ class _TimetablePageState extends State<TimetablePage> {
 
   Map<DateTime, List<Course>>? _cachedEvents;
   bool _eventsDirty = true;
+  int _weekOffset = 0;
 
   bool _summaryLoading = false;
 
@@ -63,17 +65,41 @@ class _TimetablePageState extends State<TimetablePage> {
     final semester = await _semesterService.getCurrent();
     if (semester != null) {
       final courses = await _courseService.getBySemester(semester.id);
+      final week = await _getCurrentWeek(semester);
+      _weekOffset = await SettingsService.getWeekOffset();
       if (mounted) {
         setState(() {
           _currentSemester = semester;
           _courses = courses;
           _eventsDirty = true;
+          _currentWeek = week;
           _loading = false;
         });
+        _updateWidget();
       }
     } else {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  int _calculateCurrentWeek(Semester semester) {
+    final start = _getSemesterStart(semester.name);
+    final now = DateTime.now();
+    if (now.isBefore(start)) return 1;
+    final offsetToMonday = start.weekday - DateTime.monday;
+    final monday = start.subtract(Duration(days: offsetToMonday));
+    final week = ((now.difference(monday).inDays) / 7).floor() + 1;
+    return week.clamp(1, 20);
+  }
+
+  Future<int> _getCurrentWeek(Semester semester) async {
+    final offset = await SettingsService.getWeekOffset();
+    return (_calculateCurrentWeek(semester) + offset).clamp(1, 20);
+  }
+
+  DateTime _getSemesterStart(String name) {
+    if (name.contains('春季')) return DateTime(DateTime.now().year, 3, 1);
+    return DateTime(DateTime.now().year, 9, 1);
   }
 
   Future<void> _onSemesterChanged(Semester semester) async {
@@ -115,10 +141,11 @@ class _TimetablePageState extends State<TimetablePage> {
 
   DateTime? _weekAndDayToDate(int week, int dayOfWeek) {
     if (_currentSemester == null) return null;
-    final semesterDate = DateTime.parse(_currentSemester!.createdAt);
-    final offsetToMonday = semesterDate.weekday - DateTime.monday;
-    final monday = semesterDate.subtract(Duration(days: offsetToMonday));
-    return monday.add(Duration(days: (week - 1) * 7 + (dayOfWeek - 1)));
+    final start = _getSemesterStart(_currentSemester!.name);
+    final offsetToMonday = start.weekday - DateTime.monday;
+    final monday = start.subtract(Duration(days: offsetToMonday));
+    final adjustedWeek = week - _weekOffset;
+    return monday.add(Duration(days: (adjustedWeek - 1) * 7 + (dayOfWeek - 1)));
   }
 
   List<Course> _coursesForDay(DateTime day) =>
@@ -148,26 +175,16 @@ class _TimetablePageState extends State<TimetablePage> {
   }
 
   Widget _buildMainContent() {
-    final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
     return Column(
       children: [
-        GlassLargeTitle(
-          title: '课表',
-          subtitle: _currentSemester?.name,
-          actions: [
+        if (_searchMode) _buildSearchBar() else
+          GlassLargeTitle(
+            title: '课表',
+            subtitle: _currentSemester?.name,
+            actions: [
             GlassNavAction(
               icon: CupertinoIcons.add_circled,
-              onTap: () async {
-                final result = await Navigator.pushNamed(context, '/course/edit');
-                if (result == true) _loadData();
-              },
-            ),
-            GlassNavAction(
-              icon: CupertinoIcons.doc_on_clipboard,
-              onTap: () async {
-                final result = await Navigator.pushNamed(context, '/import');
-                if (result == true) _loadData();
-              },
+              onTap: _showAddMenu,
             ),
             GlassNavAction(
               icon: _searchMode ? CupertinoIcons.xmark : CupertinoIcons.search,
@@ -251,18 +268,54 @@ class _TimetablePageState extends State<TimetablePage> {
   }
 
   Widget _buildViewToggle() {
-    return GlassSegmentIcon<TimetableView>(
-      groupValue: _view,
-      icons: const {
-        TimetableView.grid: CupertinoIcons.square_grid_2x2,
-        TimetableView.week: CupertinoIcons.calendar,
-        TimetableView.month: CupertinoIcons.calendar_circle,
-      },
-      onValueChanged: (v) {
-        _calendarFormat = v == TimetableView.month
+    final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _viewButton(TimetableView.grid, CupertinoIcons.square_grid_2x2, isDark),
+        const SizedBox(width: 4),
+        _viewButton(TimetableView.week, CupertinoIcons.calendar, isDark),
+        const SizedBox(width: 4),
+        _viewButton(TimetableView.month, CupertinoIcons.calendar_circle, isDark),
+      ],
+    );
+  }
+
+  Widget _viewButton(TimetableView mode, IconData icon, bool isDark) {
+    final selected = _view == mode;
+    return GestureDetector(
+      onTap: () {
+        _calendarFormat = mode == TimetableView.month
             ? tc.CalendarFormat.month : tc.CalendarFormat.week;
-        setState(() => _view = v);
+        setState(() => _view = mode);
       },
+      child: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: selected
+              ? CupertinoTheme.of(context).primaryColor
+              : (isDark
+                  ? CupertinoColors.darkBackgroundGray.withValues(alpha: 0.7)
+                  : CupertinoColors.white.withValues(alpha: 0.7)),
+          border: selected
+              ? null
+              : Border.all(color: CupertinoDynamicColor.resolve(
+                    CupertinoColors.systemGrey4, context).withValues(alpha: 0.2),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: CupertinoDynamicColor.resolve(
+                  CupertinoColors.systemGrey4, context).withValues(alpha: 0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Icon(icon, size: 18,
+            color: selected ? CupertinoColors.white : CupertinoColors.systemGrey),
+      ),
     );
   }
 
@@ -358,36 +411,117 @@ class _TimetablePageState extends State<TimetablePage> {
 
   Widget _buildSearchResults() {
     if (_filteredCourses.isEmpty) {
-      return _buildEmpty('未找到匹配课程', icon: CupertinoIcons.search);
+      return Column(
+        children: [
+          _buildSearchBar(),
+          Expanded(child: _buildEmpty('未找到匹配课程', icon: CupertinoIcons.search)),
+        ],
+      );
     }
-    return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      children: _filteredCourses.map((course) {
-        final color = courseColor(course.color);
-        return GlassCard(
-          margin: const EdgeInsets.only(bottom: 12),
-          onTap: () => Navigator.pushNamed(context, '/course/detail', arguments: course.id),
-          child: Row(
-            children: [
-              Container(width: 10, height: 10,
-                  decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      children: [
+        _buildSearchBar(),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            children: _filteredCourses.map((course) {
+              final color = courseColor(course.color);
+              return GlassCard(
+                margin: const EdgeInsets.only(bottom: 12),
+                onTap: () => Navigator.pushNamed(context, '/course/detail', arguments: course.id),
+                child: Row(
                   children: [
-                    Text(course.name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-                    Text(
-                      '${course.teacher}  ${weekdayLabels[course.dayOfWeek - 1]} ${course.periodStart}-${course.periodEnd}节',
-                      style: const TextStyle(fontSize: 13, color: CupertinoColors.systemGrey),
+                    Container(width: 10, height: 10,
+                        decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(course.name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                          Text(
+                            '${course.teacher}  ${weekdayLabels[course.dayOfWeek - 1]} ${course.periodStart}-${course.periodEnd}节',
+                            style: const TextStyle(fontSize: 13, color: CupertinoColors.systemGrey),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
-              ),
-            ],
+              );
+            }).toList(),
           ),
-        );
-      }).toList(),
+        ),
+      ],
+    );
+  }
+
+  void _updateWidget() {
+    if (_currentSemester != null) {
+      WidgetService.updateWidget(
+        currentWeek: _currentWeek,
+        semesterName: _currentSemester!.name,
+        weekCourses: _weekCourses,
+      );
+    }
+  }
+
+  void _showAddMenu() {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (_) => CupertinoActionSheet(
+        title: const Text('添加'),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () async {
+              Navigator.pop(context);
+              final result = await Navigator.pushNamed(context, '/course/edit');
+              if (result == true) _loadData();
+            },
+            child: const Text('手动添加课程'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () async {
+              Navigator.pop(context);
+              final result = await Navigator.pushNamed(context, '/import');
+              if (result == true) _loadData();
+            },
+            child: const Text('导入课表'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          isDefaultAction: true,
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: CupertinoSearchTextField(
+              controller: _searchController,
+              onChanged: (v) => setState(() => _searchQuery = v),
+              autofocus: true,
+              placeholder: '搜索课程或老师...',
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () => setState(() {
+              _searchMode = false;
+              _searchQuery = '';
+              _searchController.clear();
+            }),
+            child: const Text('取消', style: TextStyle(fontSize: 16, color: CupertinoColors.systemBlue)),
+          ),
+        ],
+      ),
     );
   }
 

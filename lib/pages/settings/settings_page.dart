@@ -11,6 +11,7 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   final _apiKeyController = TextEditingController();
   final _baseUrlController = TextEditingController();
+  final _weekOffsetController = TextEditingController();
   bool _loading = true;
 
   @override
@@ -22,6 +23,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _loadSettings() async {
     _apiKeyController.text = await SettingsService.getApiKey();
     _baseUrlController.text = await SettingsService.getBaseUrl();
+    _weekOffsetController.text = (await SettingsService.getWeekOffset()).toString();
     if (mounted) setState(() => _loading = false);
   }
 
@@ -29,6 +31,7 @@ class _SettingsPageState extends State<SettingsPage> {
   void dispose() {
     _apiKeyController.dispose();
     _baseUrlController.dispose();
+    _weekOffsetController.dispose();
     super.dispose();
   }
 
@@ -62,6 +65,41 @@ class _SettingsPageState extends State<SettingsPage> {
                 color: CupertinoColors.systemGrey6,
               ),
               onChanged: (v) => SettingsService.setBaseUrl(v.trim()),
+            ),
+            const SizedBox(height: 16),
+            const Text('周数调整',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            const Text('如果当前周计算不对，调整偏移量。正值=往后推，负值=往前移。',
+                style: TextStyle(color: CupertinoColors.systemGrey, fontSize: 14)),
+            const SizedBox(height: 10),
+            CupertinoTextField(
+              controller: _weekOffsetController,
+              placeholder: '周数偏移（如 -1, 0, 2）',
+              keyboardType: TextInputType.number,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                color: CupertinoColors.systemGrey6,
+              ),
+              onChanged: (v) => SettingsService.setWeekOffset(int.tryParse(v.trim()) ?? 0),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                color: CupertinoColors.systemGrey6,
+              ),
+              child: GestureDetector(
+                onTap: () => Navigator.pushNamed(context, '/widget-preview'),
+                child: const Row(children: [
+                  Icon(CupertinoIcons.square_grid_2x2, size: 20),
+                  SizedBox(width: 12),
+                  Expanded(child: Text('Widget 小组件预览', style: TextStyle(fontSize: 15))),
+                  Icon(CupertinoIcons.chevron_right, size: 16, color: CupertinoColors.systemGrey),
+                ]),
+              ),
             ),
             const SizedBox(height: 10),
             CupertinoTextField(

@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'design_system/theme.dart';
 import 'pages/timetable/timetable_page.dart';
 import 'pages/timetable/course_form_page.dart';
 import 'pages/homework/homework_list_page.dart';
@@ -8,6 +9,7 @@ import 'pages/exam/exam_form_page.dart';
 import 'pages/course_detail/course_detail_page.dart';
 import 'pages/settings/settings_page.dart';
 import 'pages/import/import_page.dart';
+import 'pages/widget_preview/widget_preview_page.dart';
 import 'widgets/glass.dart';
 
 class CourseManagerApp extends StatelessWidget {
@@ -18,14 +20,7 @@ class CourseManagerApp extends StatelessWidget {
     return CupertinoApp(
       title: '课程管理器',
       debugShowCheckedModeBanner: false,
-      theme: const CupertinoThemeData(
-        brightness: Brightness.light,
-        primaryColor: CupertinoColors.systemBlue,
-        scaffoldBackgroundColor: CupertinoColors.systemGroupedBackground,
-        textTheme: CupertinoTextThemeData(
-          primaryColor: CupertinoColors.label,
-        ),
-      ),
+      theme: AppTheme.light,
       initialRoute: '/',
       onGenerateRoute: _onGenerateRoute,
     );
@@ -58,6 +53,9 @@ class CourseManagerApp extends StatelessWidget {
         break;
       case '/import':
         page = const ImportPage();
+        break;
+      case '/widget-preview':
+        page = const WidgetPreviewPage();
         break;
       default:
         return null;

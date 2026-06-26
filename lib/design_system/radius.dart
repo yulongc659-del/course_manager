@@ -1,0 +1,19 @@
+class AppRadius {
+  static const double sm = 8;
+  static const double md = 12;
+  static const double lg = 16;
+  static const double xl = 20;
+  static const double xxl = 22;
+
+  // Card
+  static const double card = 22;
+
+  // Button (capsule)
+  static const double button = 28;
+
+  // Sheet top
+  static const double sheet = 20;
+
+  // Course card in grid
+  static const double courseCard = 14;
+}

@@ -1,4 +1,5 @@
 import 'dart:ui';
+import '../design_system/colors.dart';
 
 const weekdayLabels = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 
@@ -13,15 +14,4 @@ const periodTimes = [
   '20:00-21:40',
 ];
 
-const courseColors = [
-  Color(0xFF2196F3),
-  Color(0xFF4CAF50),
-  Color(0xFFFF9800),
-  Color(0xFF9C27B0),
-  Color(0xFFE91E63),
-  Color(0xFF00BCD4),
-  Color(0xFF795548),
-  Color(0xFF607D8B),
-];
-
-Color courseColor(int index) => courseColors[index % courseColors.length];
+Color courseColor(int index) => AppColors.courseColor(index);

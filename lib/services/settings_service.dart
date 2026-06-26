@@ -23,4 +23,14 @@ class SettingsService {
     final box = await _box;
     await box.put('base_url', url);
   }
+
+  static Future<int> getWeekOffset() async {
+    final box = await _box;
+    return box.get('week_offset', defaultValue: 0) as int;
+  }
+
+  static Future<void> setWeekOffset(int offset) async {
+    final box = await _box;
+    await box.put('week_offset', offset);
+  }
 }

@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
+import '../design_system/glass.dart' as ds;
 
 class GlassContainer extends StatelessWidget {
   final Widget child;
@@ -192,24 +193,15 @@ class AppleBottomBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
 
-    return Container(
-      decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(
-            color: CupertinoDynamicColor.resolve(
-                CupertinoColors.systemGrey4, context).withValues(alpha: 0.3),
-            width: 0.5,
-          ),
-        ),
-      ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
       child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          filter: ds.AppGlass.barBlur,
           child: Container(
-            color: isDark
-                ? CupertinoColors.systemBackground.withValues(alpha: 0.88)
-                : CupertinoColors.lightBackgroundGray.withValues(alpha: 0.92),
-            padding: const EdgeInsets.only(top: 6),
+            decoration: ds.AppGlass.floatingBar(context),
+            padding: const EdgeInsets.only(top: 8, bottom: 2),
             child: SafeArea(
               top: false,
               child: Row(

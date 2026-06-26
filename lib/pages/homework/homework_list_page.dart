@@ -7,7 +7,6 @@ import '../../services/course_service.dart';
 import '../../services/semester_service.dart';
 import '../../components/glass_card.dart';
 import '../../components/glass_navbar.dart';
-import '../../components/glass_segment.dart';
 
 class HomeworkListPage extends StatefulWidget {
   const HomeworkListPage({super.key});
@@ -95,21 +94,34 @@ class _HomeworkListPageState extends State<HomeworkListPage> {
                 ),
                 GlassNavAction(
                   icon: _searchMode ? CupertinoIcons.xmark : CupertinoIcons.search,
-                  onTap: () => setState(() { _searchMode = !_searchMode; _searchQuery = ''; _searchController.clear(); }),
+                  onTap: () {
+                    _searchMode ? _searchController.clear() : null;
+                    setState(() { _searchMode = !_searchMode; _searchQuery = ''; _cachedFiltered = null; });
+                  },
                 ),
               ],
             ),
+            if (_searchMode)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                child: CupertinoSearchTextField(
+                  controller: _searchController,
+                  onChanged: (v) => setState(() { _searchQuery = v; _cachedFiltered = null; }),
+                  autofocus: true,
+                  placeholder: '搜索作业...',
+                ),
+              ),
             const SizedBox(height: 12),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: GlassSegment<int>(
-                groupValue: _filterIndex,
-                children: const {
-                  0: Padding(padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6), child: Text('全部')),
-                  1: Padding(padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6), child: Text('未完成')),
-                  2: Padding(padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6), child: Text('已完成')),
-                },
-                onValueChanged: (v) => setState(() { _filterIndex = v; _cachedFiltered = null; }),
+              child: Row(
+                children: [
+                  _filterButton(0, '全部'),
+                  const SizedBox(width: 6),
+                  _filterButton(1, '未完成'),
+                  const SizedBox(width: 6),
+                  _filterButton(2, '已完成'),
+                ],
               ),
             ),
             const SizedBox(height: 12),
@@ -147,6 +159,32 @@ class _HomeworkListPageState extends State<HomeworkListPage> {
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       children: sections.map((s) => _buildSection(s)).toList(),
+    );
+  }
+
+  Widget _filterButton(int index, String label) {
+    final selected = _filterIndex == index;
+    final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
+    return GestureDetector(
+      onTap: () => setState(() { _filterIndex = index; _cachedFiltered = null; }),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          color: selected
+              ? CupertinoTheme.of(context).primaryColor
+              : (isDark
+                  ? CupertinoColors.darkBackgroundGray.withValues(alpha: 0.7)
+                  : CupertinoColors.white.withValues(alpha: 0.7)),
+          border: selected ? null : Border.all(
+            color: CupertinoDynamicColor.resolve(
+                CupertinoColors.systemGrey4, context).withValues(alpha: 0.2)),
+        ),
+        child: Text(label, style: TextStyle(
+          fontSize: 14, fontWeight: FontWeight.w500,
+          color: selected ? CupertinoColors.white : CupertinoColors.systemGrey,
+        )),
+      ),
     );
   }
 

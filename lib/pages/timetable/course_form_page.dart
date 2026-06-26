@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import '../../design_system/colors.dart';
 import '../../models/course.dart';
 import '../../models/semester.dart';
 import '../../services/semester_service.dart';
@@ -417,7 +418,7 @@ class _CourseFormPageState extends State<CourseFormPage> {
     return Row(
       children: [
         const SizedBox(width: 80, child: Text('颜色', style: TextStyle(fontSize: 15))),
-        ...List.generate(courseColors.length, (i) {
+        ...List.generate(AppColors.coursePalette.length, (i) {
           final selected = _color == i;
           return GestureDetector(
             onTap: () => setState(() => _color = i),
@@ -425,10 +426,10 @@ class _CourseFormPageState extends State<CourseFormPage> {
               width: 28, height: 28,
               margin: const EdgeInsets.only(right: 8),
               decoration: BoxDecoration(
-                color: courseColors[i],
+                color: AppColors.coursePalette[i],
                 shape: BoxShape.circle,
                 boxShadow: selected
-                    ? [BoxShadow(color: courseColors[i].withValues(alpha: 0.5), blurRadius: 6)]
+                    ? [BoxShadow(color: AppColors.coursePalette[i].withValues(alpha: 0.5), blurRadius: 6)]
                     : null,
               ),
               child: selected

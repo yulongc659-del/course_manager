@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import '../design_system/glass.dart' as ds;
 
 class GlassLargeTitle extends StatelessWidget {
   final String title;
@@ -81,10 +82,12 @@ class GlassNavAction extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.all(6),
-        child: Icon(icon, size: 20,
+      child: Container(
+        width: 36,
+        height: 36,
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        decoration: ds.AppGlass.navButton(context),
+        child: Icon(icon, size: 18,
             color: CupertinoTheme.of(context).primaryColor),
       ),
     );

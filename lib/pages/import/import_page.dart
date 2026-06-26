@@ -3,10 +3,11 @@ import 'package:flutter/cupertino.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../models/course.dart';
 import '../../services/import_service.dart';
+import '../../services/ocr_service.dart';
 import '../../services/course_service.dart';
 import '../../services/semester_service.dart';
-import '../../widgets/glass.dart';
 import '../../utils/constants.dart';
+import '../../components/glass_card.dart';
 
 class ImportPage extends StatefulWidget {
   const ImportPage({super.key});
@@ -26,6 +27,10 @@ class _ImportPageState extends State<ImportPage> {
   final _jsonController = TextEditingController();
   JsonSchedule? _jsonSchedule;
   String? _jsonFileName;
+
+  // OCR state
+  List<OcrResult>? _ocrResults;
+  bool _ocrLoading = false;
 
   @override
   void dispose() {
@@ -152,6 +157,52 @@ class _ImportPageState extends State<ImportPage> {
     });
   }
 
+  Future<void> _pickOcrImage() async {
+    final result = await FilePicker.platform.pickFiles(type: FileType.image);
+    if (result == null || result.files.isEmpty) return;
+
+    final bytes = result.files.first.bytes;
+    if (bytes == null) return;
+
+    setState(() {
+      _ocrLoading = true;
+      _ocrResults = null;
+    });
+
+    try {
+      final results = await OcrService.parseImage(bytes);
+      if (results.isEmpty) {
+        if (mounted) _showError('识别失败', '未能从图片中识别出课程信息');
+      } else {
+        setState(() => _ocrResults = results);
+      }
+    } catch (e) {
+      if (mounted) _showError('OCR 失败', '$e');
+    } finally {
+      setState(() => _ocrLoading = false);
+    }
+  }
+
+  Future<void> _doOcrImport() async {
+    if (_ocrResults == null) return;
+    final semester = await SemesterService().getCurrent();
+    if (semester == null) return;
+
+    final courseService = CourseService();
+    int imported = 0;
+    for (final r in _ocrResults!) {
+      await courseService.create(Course(
+        id: '', semesterId: semester.id, name: r.name,
+        teacher: r.teacher, classroom: r.classroom,
+        dayOfWeek: r.dayOfWeek, periodStart: r.periodStart, periodEnd: r.periodEnd,
+        weekStart: r.weekStart, weekEnd: r.weekEnd,
+        color: imported % 8,
+      ));
+      imported++;
+    }
+    if (mounted) _showSuccess('成功导入 $imported 门课程');
+  }
+
   Future<void> _doJsonImport() async {
     if (_jsonSchedule == null) return;
     final semester = await SemesterService().getCurrent();
@@ -253,9 +304,56 @@ class _ImportPageState extends State<ImportPage> {
               _buildImportCard(
                 icon: CupertinoIcons.camera,
                 title: '拍照 OCR 识别',
-                subtitle: 'iOS 版本中提供，设备端识别',
-                onTap: null,
+                subtitle: '选择课表截图，豆包 AI 识别',
+                onTap: _pickOcrImage,
               ),
+
+              if (_ocrLoading) ...[
+                const SizedBox(height: 16),
+                const Center(child: CupertinoActivityIndicator()),
+                const SizedBox(height: 4),
+                const Center(
+                  child: Text('豆包 AI 正在识别中...',
+                      style: TextStyle(color: CupertinoColors.systemGrey)),
+                ),
+              ],
+
+              // OCR results preview
+              if (_ocrResults != null) ...[
+                const SizedBox(height: 16),
+                Text('识别到 ${_ocrResults!.length} 门课程',
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                ..._ocrResults!.asMap().entries.map((e) {
+                  final c = e.value;
+                  final color = courseColor(e.key % 8);
+                  return GlassCard(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    child: Row(children: [
+                      Container(width: 10, height: 10,
+                          decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(c.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                          Text(
+                            '${weekdayLabels[c.dayOfWeek - 1]} ${c.periodStart}-${c.periodEnd}节  '
+                                '第${c.weekStart}-${c.weekEnd}周'
+                                '${c.classroom.isNotEmpty ? '  ${c.classroom}' : ''}',
+                            style: const TextStyle(fontSize: 12, color: CupertinoColors.systemGrey),
+                          ),
+                        ]),
+                      ),
+                    ]),
+                  );
+                }),
+                const SizedBox(height: 16),
+                CupertinoButton.filled(
+                  onPressed: _doOcrImport,
+                  child: const Text('确认导入'),
+                ),
+              ],
 
               if (_loading) ...[
                 const SizedBox(height: 16),
