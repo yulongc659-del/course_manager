@@ -53,8 +53,10 @@ widget_target.build_configurations.each do |config|
   config.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
 end
 
-# Note: Widget extension will be built separately after Flutter build
-# to avoid "Multiple commands produce" conflict
+# Add WidgetKit.framework to main target (weak link)
+widget_ref = project.frameworks_group.new_file("System/Library/Frameworks/WidgetKit.framework")
+build_file = main_target.frameworks_build_phase.add_file_reference(widget_ref)
+build_file.settings = { 'ATTRIBUTES' => ['Weak'] }
 
 # Add App Groups capability
 [main_target, widget_target].each do |target|

@@ -1,5 +1,6 @@
 import Flutter
 import UIKit
+import WidgetKit
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -59,6 +60,8 @@ struct WidgetData {
   }
 
   static func reloadAllTimelines() {
-    WidgetCenter.shared.reloadAllTimelines()
+    if #available(iOS 14.0, *) {
+      WidgetCenter.shared.reloadAllTimelines()
+    }
   }
 }
