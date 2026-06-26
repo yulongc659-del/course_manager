@@ -25,8 +25,8 @@ widget_target.product_name = 'TodayWidget'
 
 # Add source files
 sources = [
-  'ios/TodayWidget/TodayWidget.swift',
-  'ios/TodayWidget/TodayWidgetBundle.swift',
+  'TodayWidget/TodayWidget.swift',
+  'TodayWidget/TodayWidgetBundle.swift',
 ]
 
 sources.each do |src|
@@ -43,7 +43,7 @@ end
 
 # Info.plist
 widget_target.build_configurations.each do |config|
-  config.build_settings['INFOPLIST_FILE'] = 'ios/TodayWidget/Info.plist'
+  config.build_settings['INFOPLIST_FILE'] = '../TodayWidget/Info.plist'
   config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.course.manager.TodayWidget'
   config.build_settings['PRODUCT_NAME'] = 'TodayWidget'
   config.build_settings['PRODUCT_MODULE_NAME'] = 'TodayWidget'
