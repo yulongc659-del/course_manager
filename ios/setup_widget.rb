@@ -53,20 +53,8 @@ widget_target.build_configurations.each do |config|
   config.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
 end
 
-# Add widget extension to main target's dependencies
-main_target.add_dependency(widget_target)
-
-# Embed app extension
-embed_phase = main_target.copy_files_build_phases.find { |p| p.dst_subfolder_spec == '13' } ||
-  main_target.new_copy_files_build_phase('Embed App Extensions')
-
-embed_phase.dst_path = '$(EXTENSIONS_FOLDER_PATH)'
-embed_phase.dst_subfolder_spec = '13'
-
-embed_ref = project.products_group.children.find { |p| p.name == 'TodayWidget.appex' } ||
-  project.products_group.new_product_ref_for_target('TodayWidget', 'com.course.manager.TodayWidget')
-
-embed_phase.add_file_reference(embed_ref)
+# Note: Widget extension will be built separately after Flutter build
+# to avoid "Multiple commands produce" conflict
 
 # Add App Groups capability
 [main_target, widget_target].each do |target|

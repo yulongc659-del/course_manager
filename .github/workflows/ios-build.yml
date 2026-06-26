@@ -25,15 +25,23 @@ jobs:
 
       - run: flutter build ios --release --no-codesign
 
+      - name: Build Widget Extension
+        run: |
+          xcodebuild \
+            -project ios/Runner.xcodeproj \
+            -target TodayWidget \
+            -configuration Release \
+            -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO \
+            CONFIGURATION_BUILD_DIR=build/ios/iphoneos \
+            build
+
       - name: Create IPA
         run: |
           mkdir -p Payload
           cp -r build/ios/iphoneos/Runner.app Payload/
-          # Copy widget extension
-          if [ -d "build/ios/iphoneos/TodayWidget.appex" ]; then
-            mkdir -p Payload/Runner.app/PlugIns
-            cp -r build/ios/iphoneos/TodayWidget.appex Payload/Runner.app/PlugIns/
-          fi
+          mkdir -p Payload/Runner.app/PlugIns
+          cp -r build/ios/iphoneos/TodayWidget.appex Payload/Runner.app/PlugIns/ 2>/dev/null || true
           ditto -c -k --sequesterRsrc --keepParent Payload course_manager.ipa
         shell: bash
 
