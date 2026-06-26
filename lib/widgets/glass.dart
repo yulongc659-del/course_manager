@@ -194,14 +194,14 @@ class AppleBottomBar extends StatelessWidget {
     final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(28),
         child: BackdropFilter(
           filter: ds.AppGlass.barBlur,
           child: Container(
             decoration: ds.AppGlass.floatingBar(context),
-            padding: const EdgeInsets.only(top: 8, bottom: 2),
+            padding: const EdgeInsets.only(top: 6, bottom: 0),
             child: SafeArea(
               top: false,
               child: Row(

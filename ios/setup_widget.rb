@@ -64,6 +64,23 @@ widget_ref = project.frameworks_group.new_file("System/Library/Frameworks/Widget
 build_file = main_target.frameworks_build_phase.add_file_reference(widget_ref)
 build_file.settings = { 'ATTRIBUTES' => ['Weak'] }
 
+# Add widget as dependency of Runner target
+main_target.add_dependency(widget_target)
+
+# Embed widget extension
+embed_phase = main_target.copy_files_build_phases.find { |p| p.dst_subfolder_spec == '13' }
+if embed_phase.nil?
+  embed_phase = main_target.new_copy_files_build_phase('Embed App Extensions')
+  embed_phase.dst_subfolder_spec = '13'
+  embed_phase.dst_path = '$(EXTENSIONS_FOLDER_PATH)'
+end
+
+product_ref = project.products_group.children.find { |r| r.path&.include?('TodayWidget.appex') }
+unless product_ref
+  product_ref = project.products_group.new_product_ref_for_target('TodayWidget', 'com.course.manager.TodayWidget')
+end
+embed_phase.add_file_reference(product_ref)
+
 # Add App Groups capability
 [main_target, widget_target].each do |target|
   target.build_configurations.each do |config|
@@ -74,4 +91,4 @@ build_file.settings = { 'ATTRIBUTES' => ['Weak'] }
 end
 
 project.save
-puts "TodayWidget target setup complete!"
+puts "TodayWidget target setup complete! (with embedding)"

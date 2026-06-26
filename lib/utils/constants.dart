@@ -15,3 +15,12 @@ const periodTimes = [
 ];
 
 Color courseColor(int index) => AppColors.courseColor(index);
+
+int nameBasedColor(String name) {
+  if (name.isEmpty) return 0;
+  int hash = 0;
+  for (int i = 0; i < name.length; i++) {
+    hash = (hash * 31 + name.codeUnitAt(i)) & 0x7FFFFFFF;
+  }
+  return hash % 8;
+}

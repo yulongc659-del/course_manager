@@ -215,7 +215,9 @@ class _TimetablePageState extends State<TimetablePage> {
           _buildAiWeekButton(),
           const SizedBox(height: 12),
           Expanded(
-            child: _weekCourses.isEmpty
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 90),
+              child: _weekCourses.isEmpty
                 ? _buildEmpty('本周没有课程',
                     icon: CupertinoIcons.calendar,
                     hint: '点击右上角 ⊕ 添加课程')
@@ -226,9 +228,15 @@ class _TimetablePageState extends State<TimetablePage> {
                           context, '/course/detail', arguments: course.id),
                     ),
                   ),
+            ),
           ),
         ] else
-          Expanded(child: _buildCalendar()),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 90),
+              child: _buildCalendar(),
+            ),
+          ),
       ],
     );
   }

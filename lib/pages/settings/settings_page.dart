@@ -1,5 +1,9 @@
 import 'package:flutter/cupertino.dart';
+import '../../models/course.dart';
 import '../../services/settings_service.dart';
+import '../../services/course_service.dart';
+import '../../services/semester_service.dart';
+import '../../utils/constants.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -76,7 +80,7 @@ class _SettingsPageState extends State<SettingsPage> {
             CupertinoTextField(
               controller: _weekOffsetController,
               placeholder: '周数偏移（如 -1, 0, 2）',
-              keyboardType: TextInputType.number,
+              keyboardType: const TextInputType.numberWithOptions(signed: true),
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
@@ -134,6 +138,52 @@ class _SettingsPageState extends State<SettingsPage> {
                   child: const Text('确认保存'),
                 ),
               ],
+            ),
+            const SizedBox(height: 24),
+            const Text('数据维护',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                color: CupertinoColors.systemGrey6,
+              ),
+              child: GestureDetector(
+                onTap: () async {
+                  final sem = await SemesterService().getCurrent();
+                  if (sem == null) return;
+                  final courses = await CourseService().getBySemester(sem.id);
+                  for (final c in courses) {
+                    final updated = Course(
+                      id: c.id, semesterId: c.semesterId, name: c.name,
+                      teacher: c.teacher, classroom: c.classroom,
+                      dayOfWeek: c.dayOfWeek, periodStart: c.periodStart, periodEnd: c.periodEnd,
+                      weekStart: c.weekStart, weekEnd: c.weekEnd,
+                      color: nameBasedColor(c.name),
+                      createdAt: c.createdAt,
+                    );
+                    await CourseService().update(updated);
+                  }
+                  if (mounted) {
+                    showCupertinoDialog(
+                      context: context,
+                      builder: (_) => CupertinoAlertDialog(
+                        title: const Text('完成'),
+                        content: Text('已更新 ${courses.length} 门课程的颜色'),
+                        actions: [CupertinoDialogAction(child: const Text('好'), onPressed: () => Navigator.pop(context))],
+                      ),
+                    );
+                  }
+                },
+                child: const Row(children: [
+                  Icon(CupertinoIcons.paintbrush, size: 20),
+                  SizedBox(width: 12),
+                  Text('统一课程颜色', style: TextStyle(fontSize: 15)),
+                  Spacer(),
+                  Icon(CupertinoIcons.chevron_right, size: 16, color: CupertinoColors.systemGrey),
+                ]),
+              ),
             ),
             const SizedBox(height: 32),
             const Text('关于',

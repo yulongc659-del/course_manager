@@ -132,7 +132,7 @@ class _ImportPageState extends State<ImportPage> {
         classroom: classroomCol != null ? (row.fields[classroomCol] ?? '').trim() : '',
         dayOfWeek: day, periodStart: period.$1, periodEnd: period.$2,
         weekStart: week?.$1 ?? 1, weekEnd: week?.$2 ?? 16,
-        color: imported % 8,
+        color: nameBasedColor(name),
       ));
       imported++;
     }
@@ -196,7 +196,7 @@ class _ImportPageState extends State<ImportPage> {
         teacher: r.teacher, classroom: r.classroom,
         dayOfWeek: r.dayOfWeek, periodStart: r.periodStart, periodEnd: r.periodEnd,
         weekStart: r.weekStart, weekEnd: r.weekEnd,
-        color: imported % 8,
+        color: nameBasedColor(r.name),
       ));
       imported++;
     }
@@ -218,7 +218,7 @@ class _ImportPageState extends State<ImportPage> {
         classroom: c.location,
         dayOfWeek: c.dayOfWeek, periodStart: c.periodStart, periodEnd: c.periodEnd,
         weekStart: c.weekStart, weekEnd: c.weekEnd,
-        color: imported % 8,
+        color: nameBasedColor(c.name),
       ));
       imported++;
     }
